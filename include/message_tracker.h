@@ -3,9 +3,13 @@
 #include <Arduino.h>
 
 #include "message.h"
+#include "communication.h"
 
 constexpr uint8_t MAX_PENDING_MESSAGES = 20;
+
 constexpr uint32_t MESSAGE_TIMEOUT = 5000;
+
+constexpr uint8_t MAX_MESSAGE_RETRIES = 2;
 
 struct PendingMessage {
     Message message;
@@ -25,7 +29,9 @@ struct MessageTracker {
     uint8_t count;
 };
 
-void initMessageTracker(MessageTracker& tracker);
+void initMessageTracker(
+    MessageTracker& tracker
+);
 
 bool trackMessage(
     MessageTracker& tracker,
@@ -42,8 +48,17 @@ bool processAck(
     const Message& ack
 );
 
-void updateMessageTimeouts(
-    MessageTracker& tracker
+/*
+ * Vérifie les timeouts et indique
+ * quels messages doivent être renvoyés.
+ *
+ * Les messages à retransmettre sont
+ * replacés dans le CommunicationBus
+ * par le routeur / main.
+ */
+bool updateMessageTimeouts(
+    MessageTracker& tracker,
+    CommunicationBus& communication
 );
 
 void printPendingMessage(

@@ -3,7 +3,9 @@
 #include "message_tracker.h"
 #include "message_manager.h"
 
-void initMessageTracker(MessageTracker& tracker) {
+void initMessageTracker(
+    MessageTracker& tracker
+) {
     tracker.count = 0;
 }
 
@@ -16,10 +18,18 @@ bool trackMessage(
         return false;
     }
 
-    // Éviter les doublons
-    if (findPendingMessage(tracker, message.id) != nullptr) {
-        Serial.print("Message deja suivi : ");
+    if (
+        findPendingMessage(
+            tracker,
+            message.id
+        ) != nullptr
+    ) {
+        Serial.print(
+            "Message deja suivi : "
+        );
+
         Serial.println(message.id);
+
         return false;
     }
 
@@ -27,11 +37,13 @@ bool trackMessage(
         tracker.messages[tracker.count];
 
     pending.message = message;
+
     pending.waitingForAck =
         message.type == MessageType::COMMAND;
 
     pending.completed = false;
     pending.timedOut = false;
+
     pending.retryCount = 0;
 
     pending.sentAt = millis();
@@ -39,8 +51,13 @@ bool trackMessage(
 
     tracker.count++;
 
-    Serial.print("Message suivi : ");
-    Serial.println(message.id);
+    Serial.print(
+        "Message suivi : "
+    );
+
+    Serial.println(
+        message.id
+    );
 
     return true;
 }
@@ -49,8 +66,16 @@ PendingMessage* findPendingMessage(
     MessageTracker& tracker,
     uint32_t messageId
 ) {
-    for (uint8_t i = 0; i < tracker.count; i++) {
-        if (tracker.messages[i].message.id == messageId) {
+    for (
+        uint8_t i = 0;
+        i < tracker.count;
+        i++
+    ) {
+        if (
+            tracker.messages[i]
+                .message.id
+            == messageId
+        ) {
             return &tracker.messages[i];
         }
     }
@@ -62,13 +87,16 @@ bool processAck(
     MessageTracker& tracker,
     const Message& ack
 ) {
-    if (ack.type != MessageType::ACK) {
+    if (
+        ack.type != MessageType::ACK
+    ) {
         return false;
     }
 
-    // value2 contient l'ID du message original
     uint32_t originalMessageId =
-        static_cast<uint32_t>(ack.value2);
+        static_cast<uint32_t>(
+            ack.value2
+        );
 
     PendingMessage* pending =
         findPendingMessage(
@@ -77,22 +105,29 @@ bool processAck(
         );
 
     if (pending == nullptr) {
-        Serial.print("Message original introuvable : ");
-        Serial.println(originalMessageId);
+        Serial.print(
+            "Message original introuvable : "
+        );
+
+        Serial.println(
+            originalMessageId
+        );
+
         return false;
     }
 
     pending->waitingForAck = false;
     pending->completed = true;
     pending->timedOut = false;
+
     pending->completedAt = millis();
 
     pending->message.executionStatus =
         ack.executionStatus;
 
     if (
-        ack.executionStatus ==
-        ExecutionStatus::EXECUTED
+        ack.executionStatus
+        == ExecutionStatus::EXECUTED
     ) {
         pending->message.status =
             MessageStatus::DELIVERED;
@@ -102,10 +137,18 @@ bool processAck(
             MessageStatus::FAILED;
     }
 
-    Serial.print("ACK associe au message : ");
-    Serial.println(originalMessageId);
+    Serial.print(
+        "ACK associe au message : "
+    );
 
-    Serial.print("Execution finale : ");
+    Serial.println(
+        originalMessageId
+    );
+
+    Serial.print(
+        "Execution finale : "
+    );
+
     Serial.println(
         executionStatusToString(
             ack.executionStatus
@@ -115,13 +158,19 @@ bool processAck(
     return true;
 }
 
-void updateMessageTimeouts(
-    MessageTracker& tracker
+bool updateMessageTimeouts(
+    MessageTracker& tracker,
+    CommunicationBus& communication
 ) {
+    bool retryTriggered = false;
+
     uint32_t now = millis();
 
-    for (uint8_t i = 0; i < tracker.count; i++) {
-
+    for (
+        uint8_t i = 0;
+        i < tracker.count;
+        i++
+    ) {
         PendingMessage& pending =
             tracker.messages[i];
 
@@ -130,58 +179,190 @@ void updateMessageTimeouts(
         }
 
         if (
-            now - pending.sentAt >=
-            MESSAGE_TIMEOUT
+            now - pending.sentAt
+            < MESSAGE_TIMEOUT
         ) {
-            pending.waitingForAck = false;
+            continue;
+        }
+
+        /*
+         * TIMEOUT
+         */
+
+        Serial.print(
+            "TIMEOUT message : "
+        );
+
+        Serial.println(
+            pending.message.id
+        );
+
+        /*
+         * Peut-on encore réessayer ?
+         */
+
+        if (
+            pending.retryCount
+            < MAX_MESSAGE_RETRIES
+        ) {
+            pending.retryCount++;
+
+            pending.sentAt = now;
             pending.timedOut = true;
 
-            Serial.print("TIMEOUT message : ");
+            /*
+             * Le message reste en attente
+             * d'un ACK.
+             */
+
+            pending.waitingForAck = true;
+
+            Message retry =
+                pending.message;
+
+            retry.status =
+                MessageStatus::PENDING;
+
+            /*
+             * IMPORTANT :
+             *
+             * Le retry utilise le même ID.
+             *
+             * On ne crée donc pas une
+             * nouvelle commande logique.
+             */
+
+            if (
+                sendMessage(
+                    communication,
+                    retry
+                )
+            ) {
+                Serial.print(
+                    "RETRY #"
+                );
+
+                Serial.print(
+                    pending.retryCount
+                );
+
+                Serial.print(
+                    " message : "
+                );
+
+                Serial.println(
+                    pending.message.id
+                );
+
+                retryTriggered = true;
+            }
+        }
+        else {
+            /*
+             * Nombre maximum de retries atteint.
+             */
+
+            pending.waitingForAck = false;
+            pending.completed = true;
+            pending.timedOut = true;
+
+            pending.message.status =
+                MessageStatus::FAILED;
+
+            pending.message.executionStatus =
+                ExecutionStatus::FAILED;
+
+            pending.completedAt = now;
+
+            Serial.print(
+                "MAX RETRIES atteint : "
+            );
+
+            Serial.println(
+                pending.message.id
+            );
+
+            Serial.print(
+                "Message FAILED : "
+            );
+
             Serial.println(
                 pending.message.id
             );
         }
     }
+
+    return retryTriggered;
 }
 
 void printPendingMessage(
     const PendingMessage& pending
 ) {
-    Serial.println("===== PENDING MESSAGE =====");
-
-    printMessage(pending.message);
-
-    Serial.print("Waiting ACK : ");
     Serial.println(
-        pending.waitingForAck ? "OUI" : "NON"
+        "===== PENDING MESSAGE ====="
     );
 
-    Serial.print("Completed : ");
-    Serial.println(
-        pending.completed ? "OUI" : "NON"
+    printMessage(
+        pending.message
     );
 
-    Serial.print("Timed out : ");
-    Serial.println(
-        pending.timedOut ? "OUI" : "NON"
+    Serial.print(
+        "Waiting ACK : "
     );
 
-    Serial.print("Retry count : ");
+    Serial.println(
+        pending.waitingForAck
+            ? "OUI"
+            : "NON"
+    );
+
+    Serial.print(
+        "Completed : "
+    );
+
+    Serial.println(
+        pending.completed
+            ? "OUI"
+            : "NON"
+    );
+
+    Serial.print(
+        "Timed out : "
+    );
+
+    Serial.println(
+        pending.timedOut
+            ? "OUI"
+            : "NON"
+    );
+
+    Serial.print(
+        "Retry count : "
+    );
+
     Serial.println(
         pending.retryCount
     );
 
-    Serial.print("Sent at : ");
+    Serial.print(
+        "Sent at : "
+    );
+
     Serial.println(
         pending.sentAt
     );
 
-    Serial.print("Completed at : ");
+    Serial.print(
+        "Completed at : "
+    );
+
     Serial.println(
         pending.completedAt
     );
 
-    Serial.println("===========================");
+    Serial.println(
+        "==========================="
+    );
 }
 
 void printMessageTracker(
@@ -192,10 +373,19 @@ void printMessageTracker(
         "===== MESSAGE TRACKER ====="
     );
 
-    Serial.print("Messages suivis : ");
-    Serial.println(tracker.count);
+    Serial.print(
+        "Messages suivis : "
+    );
 
-    for (uint8_t i = 0; i < tracker.count; i++) {
+    Serial.println(
+        tracker.count
+    );
+
+    for (
+        uint8_t i = 0;
+        i < tracker.count;
+        i++
+    ) {
         printPendingMessage(
             tracker.messages[i]
         );
