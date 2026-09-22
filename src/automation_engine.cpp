@@ -3,6 +3,7 @@
 #include "automation_engine.h"
 #include "action_executor.h"
 
+
 bool evaluateCondition(
     const AutomationCondition& condition,
     const AutomationContext& context
@@ -12,12 +13,15 @@ bool evaluateCondition(
     switch (condition.type) {
 
         case AutomationConditionType::LIGHT_LEVEL:
-            actualValue = context.lightLevel;
+            actualValue =
+                context.lightLevel;
             break;
 
         case AutomationConditionType::PRESENCE:
             actualValue =
-                context.presenceDetected ? 1 : 0;
+                context.presenceDetected
+                    ? 1
+                    : 0;
             break;
 
         case AutomationConditionType::TIME:
@@ -30,19 +34,24 @@ bool evaluateCondition(
     switch (condition.op) {
 
         case AutomationOperator::LESS_THAN:
-            return actualValue < condition.value;
+            return actualValue <
+                   condition.value;
 
         case AutomationOperator::LESS_OR_EQUAL:
-            return actualValue <= condition.value;
+            return actualValue <=
+                   condition.value;
 
         case AutomationOperator::GREATER_THAN:
-            return actualValue > condition.value;
+            return actualValue >
+                   condition.value;
 
         case AutomationOperator::GREATER_OR_EQUAL:
-            return actualValue >= condition.value;
+            return actualValue >=
+                   condition.value;
 
         case AutomationOperator::EQUAL:
-            return actualValue == condition.value;
+            return actualValue ==
+                   condition.value;
     }
 
     return false;
@@ -53,12 +62,16 @@ bool evaluateAutomation(
     const Automation& automation,
     const AutomationContext& context
 ) {
-    if (automation.conditionCount == 0) {
+    if (
+        automation.conditionCount == 0
+    ) {
         return false;
     }
 
-    if (automation.logic == AutomationLogic::AND) {
-
+    if (
+        automation.logic ==
+        AutomationLogic::AND
+    ) {
         for (
             uint8_t i = 0;
             i < automation.conditionCount;
@@ -76,8 +89,6 @@ bool evaluateAutomation(
 
         return true;
     }
-
-    // OR
 
     for (
         uint8_t i = 0;
@@ -134,6 +145,7 @@ void processAutomations(
         if (!conditionResult) {
 
             if (automation.conditionState) {
+
                 Serial.print(
                     "Condition terminee : "
                 );
@@ -173,7 +185,7 @@ void processAutomations(
 
         /*
          * ==========================
-         * DELAI DE DECLENCHEMENT
+         * DELAI
          * ==========================
          */
 
@@ -223,6 +235,7 @@ void processAutomations(
          */
 
         Serial.println();
+
         Serial.print(
             "AUTOMATISATION DECLENCHEE : "
         );
@@ -247,10 +260,17 @@ void processAutomations(
         ) {
             const AutomationAction&
                 automationAction =
-                    automation.actions[actionIndex];
+                    automation.actions[
+                        actionIndex
+                    ];
 
-            Serial.print("Action #");
-            Serial.println(actionIndex);
+            Serial.print(
+                "Action #"
+            );
+
+            Serial.println(
+                actionIndex
+            );
 
             Action action = {
                 automationAction.type,
@@ -281,6 +301,7 @@ void processAutomations(
          */
 
         Serial.println();
+
         Serial.println(
             "===== RESULTAT AUTOMATISATION ====="
         );
@@ -304,10 +325,6 @@ void processAutomations(
         Serial.println(
             "==================================="
         );
-
-        /*
-         * Une exécution a bien eu lieu.
-         */
 
         automation.lastTriggered = now;
 

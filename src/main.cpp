@@ -11,10 +11,23 @@
 #include "automation_engine.h"
 #include "action_executor.h"
 
+#include "event.h"
+#include "event_bus.h"
+#include "event_processor.h"
+#include "id_generator.h"
+#include "automation_context.h"
+
+
+// ============================================================
+// REGISTRES GLOBAUX
+// ============================================================
+
 LampRegistry lampRegistry;
 GroupRegistry groupRegistry;
 SceneRegistry sceneRegistry;
 AutomationRegistry automationRegistry;
+
+EventBus eventBus;
 
 
 // ============================================================
@@ -53,7 +66,50 @@ void processContext(
 
     Serial.println(context.minute);
 
-    processAutomations(
+
+    // ========================================================
+    // CREATION D'UN EVENEMENT
+    // ========================================================
+
+    Event event = {
+        generateEventId(),
+        EventType::LIGHT_LEVEL_CHANGED,
+        0,
+        context.lightLevel,
+        context.presenceDetected ? 1 : 0,
+        millis()
+    };
+
+
+    // ========================================================
+    // PUBLICATION DANS LE EVENT BUS
+    // ========================================================
+
+    if (
+        publishEvent(
+            eventBus,
+            event
+        )
+    ) {
+        Serial.println(
+            "Evenement publie"
+        );
+    }
+    else {
+        Serial.println(
+            "Erreur publication evenement"
+        );
+
+        return;
+    }
+
+
+    // ========================================================
+    // TRAITEMENT DES EVENEMENTS
+    // ========================================================
+
+    processEvents(
+        eventBus,
         automationRegistry,
         sceneRegistry,
         groupRegistry,
@@ -76,7 +132,7 @@ void setup() {
     Serial.println();
     Serial.println("==============================");
     Serial.println("      SMART LIGHTING V2");
-    Serial.println("      AUTOMATION V2.7");
+    Serial.println("      AUTOMATION V2.9");
     Serial.println("==============================");
 
 
@@ -100,6 +156,14 @@ void setup() {
         automationRegistry
     );
 
+    initEventBus(
+        eventBus
+    );
+
+    Serial.println(
+        "Event Bus initialise"
+    );
+
 
     // ========================================================
     // LAMPES
@@ -120,6 +184,7 @@ void setup() {
         }
     };
 
+
     Lamp lamp2 = {
         {
             2,
@@ -135,6 +200,7 @@ void setup() {
         }
     };
 
+
     Lamp lamp3 = {
         {
             3,
@@ -149,6 +215,7 @@ void setup() {
             true
         }
     };
+
 
     addLamp(
         lampRegistry,
@@ -177,10 +244,12 @@ void setup() {
         0
     };
 
+
     addGroup(
         groupRegistry,
         entree
     );
+
 
     addLampToGroup(
         groupRegistry,
@@ -215,10 +284,16 @@ void setup() {
         0
     };
 
+
     addScene(
         sceneRegistry,
         soir
     );
+
+
+    // ========================================================
+    // ACTION SCENE #0
+    // ========================================================
 
     SceneAction powerOn = {
         1,
@@ -226,11 +301,17 @@ void setup() {
         1
     };
 
+
+    // ========================================================
+    // ACTION SCENE #1
+    // ========================================================
+
     SceneAction brightness = {
         1,
         CommandType::SET_GROUP_BRIGHTNESS,
         40
     };
+
 
     addActionToScene(
         sceneRegistry,
@@ -258,44 +339,35 @@ void setup() {
     //
     // MODE ONCE
     // DELAI 3 secondes
+    // COOLDOWN 10 secondes
     // ========================================================
 
     Automation automation1 = {
         1,
         "SOIR_PRESENCE",
-
         true,
 
         {},
-
         0,
 
         AutomationLogic::AND,
 
-        // Actions
         {},
-
         0,
 
-        // Scene de compatibilite
-        1,
-
-        // Etat
         false,
         0,
         0,
 
-        // Timing
         3000,
         10000,
 
-        // Mode
         AutomationTriggerMode::ONCE
     };
 
+
     addAutomation(
         automationRegistry,
-        sceneRegistry,
         automation1
     );
 
@@ -310,11 +382,13 @@ void setup() {
         30
     };
 
+
     AutomationCondition presenceCondition = {
         AutomationConditionType::PRESENCE,
         AutomationOperator::EQUAL,
         1
     };
+
 
     addConditionToAutomation(
         automationRegistry,
@@ -341,6 +415,7 @@ void setup() {
         25
     };
 
+
     addActionToAutomation(
         automationRegistry,
         1,
@@ -359,6 +434,7 @@ void setup() {
         1,
         1
     };
+
 
     addActionToAutomation(
         automationRegistry,
@@ -384,39 +460,29 @@ void setup() {
     Automation automation2 = {
         2,
         "SOIR_HORAIRE",
-
         true,
 
         {},
-
         0,
 
         AutomationLogic::OR,
 
-        // Actions
         {},
-
         0,
 
-        // Scene
-        1,
-
-        // Etat
         false,
         0,
         0,
 
-        // Timing
         2000,
         8000,
 
-        // Mode
         AutomationTriggerMode::REPEAT
     };
 
+
     addAutomation(
         automationRegistry,
-        sceneRegistry,
         automation2
     );
 
@@ -431,11 +497,13 @@ void setup() {
         20
     };
 
+
     AutomationCondition timeCondition = {
         AutomationConditionType::TIME,
         AutomationOperator::GREATER_OR_EQUAL,
         21 * 60
     };
+
 
     addConditionToAutomation(
         automationRegistry,
@@ -461,6 +529,7 @@ void setup() {
         1,
         0
     };
+
 
     addActionToAutomation(
         automationRegistry,
@@ -494,6 +563,7 @@ void setup() {
         }
     );
 
+
     delay(1000);
 
 
@@ -514,6 +584,7 @@ void setup() {
             0
         }
     );
+
 
     Serial.println(
         "Attente 3 secondes..."
@@ -557,6 +628,7 @@ void setup() {
 
     delay(5000);
 
+
     processContext(
         "TEST 3B",
         {
@@ -584,6 +656,7 @@ void setup() {
         }
     );
 
+
     delay(1000);
 
 
@@ -602,6 +675,7 @@ void setup() {
             0
         }
     );
+
 
     Serial.println(
         "Attente 3 secondes..."
@@ -642,6 +716,7 @@ void setup() {
 
     delay(5000);
 
+
     processContext(
         "TEST 6B",
         {
@@ -669,6 +744,7 @@ void setup() {
     );
 
     delay(5000);
+
 
     processContext(
         "TEST 7B",
@@ -698,6 +774,7 @@ void setup() {
 
     delay(5000);
 
+
     processContext(
         "TEST 8B",
         {
@@ -718,13 +795,16 @@ void setup() {
         "===== ETAT FINAL ====="
     );
 
+
     printLampState(
         lampRegistry.lamps[0]
     );
 
+
     printLampState(
         lampRegistry.lamps[1]
     );
+
 
     printLampState(
         lampRegistry.lamps[2]
@@ -736,12 +816,13 @@ void setup() {
     // ========================================================
 
     Serial.println();
+
     Serial.println(
         "=============================="
     );
 
     Serial.println(
-        " SMART LIGHTING V2.7 READY"
+        " SMART LIGHTING V2.9 READY"
     );
 
     Serial.println(

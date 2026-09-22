@@ -2,11 +2,13 @@
 
 #include "automation_manager.h"
 
+
 void initAutomationRegistry(
     AutomationRegistry& registry
 ) {
     registry.count = 0;
 }
+
 
 Automation* findAutomation(
     AutomationRegistry& registry,
@@ -28,9 +30,9 @@ Automation* findAutomation(
     return nullptr;
 }
 
+
 bool addAutomation(
     AutomationRegistry& registry,
-    SceneRegistry& scenes,
     const Automation& automation
 ) {
     if (
@@ -38,8 +40,9 @@ bool addAutomation(
         MAX_AUTOMATIONS
     ) {
         Serial.println(
-            "Impossible d'ajouter l'automatisation : registre plein"
+            "Nombre maximum d'automatisations atteint"
         );
+
         return false;
     }
 
@@ -55,34 +58,6 @@ bool addAutomation(
 
         Serial.println(
             automation.id
-        );
-
-        return false;
-    }
-
-    if (
-        automation.conditionCount >
-        MAX_AUTOMATION_CONDITIONS
-    ) {
-        Serial.println(
-            "Impossible d'ajouter l'automatisation : trop de conditions"
-        );
-
-        return false;
-    }
-
-    if (
-        findScene(
-            scenes,
-            automation.sceneId
-        ) == nullptr
-    ) {
-        Serial.print(
-            "Scene introuvable pour l'automatisation : "
-        );
-
-        Serial.println(
-            automation.sceneId
         );
 
         return false;
@@ -104,6 +79,7 @@ bool addAutomation(
 
     return true;
 }
+
 
 bool removeAutomation(
     AutomationRegistry& registry,
@@ -143,6 +119,7 @@ bool removeAutomation(
 
     return false;
 }
+
 
 bool addConditionToAutomation(
     AutomationRegistry& registry,
@@ -191,6 +168,7 @@ bool addConditionToAutomation(
     return true;
 }
 
+
 bool removeConditionFromAutomation(
     AutomationRegistry& registry,
     uint32_t automationId,
@@ -225,246 +203,6 @@ bool removeConditionFromAutomation(
     automation->conditionCount--;
 
     return true;
-}
-
-bool enableAutomation(
-    AutomationRegistry& registry,
-    uint32_t automationId
-) {
-    Automation* automation =
-        findAutomation(
-            registry,
-            automationId
-        );
-
-    if (automation == nullptr) {
-        return false;
-    }
-
-    automation->enabled = true;
-
-    automation->conditionState = false;
-    automation->conditionSince = 0;
-
-    Serial.print(
-        "Automatisation activee : "
-    );
-
-    Serial.println(
-        automation->name
-    );
-
-    return true;
-}
-
-bool disableAutomation(
-    AutomationRegistry& registry,
-    uint32_t automationId
-) {
-    Automation* automation =
-        findAutomation(
-            registry,
-            automationId
-        );
-
-    if (automation == nullptr) {
-        return false;
-    }
-
-    automation->enabled = false;
-
-    automation->conditionState = false;
-    automation->conditionSince = 0;
-
-    Serial.print(
-        "Automatisation desactivee : "
-    );
-
-    Serial.println(
-        automation->name
-    );
-
-    return true;
-}
-
-static void printCondition(
-    const AutomationCondition& condition
-) {
-    switch (condition.type) {
-
-        case AutomationConditionType::LIGHT_LEVEL:
-            Serial.print("LUMINOSITE ");
-            break;
-
-        case AutomationConditionType::PRESENCE:
-            Serial.print("PRESENCE ");
-            break;
-
-        case AutomationConditionType::TIME:
-            Serial.print("HEURE ");
-            break;
-    }
-
-    switch (condition.op) {
-
-        case AutomationOperator::LESS_THAN:
-            Serial.print("<");
-            break;
-
-        case AutomationOperator::LESS_OR_EQUAL:
-            Serial.print("<=");
-            break;
-
-        case AutomationOperator::GREATER_THAN:
-            Serial.print(">");
-            break;
-
-        case AutomationOperator::GREATER_OR_EQUAL:
-            Serial.print(">=");
-            break;
-
-        case AutomationOperator::EQUAL:
-            Serial.print("=");
-            break;
-    }
-
-    if (
-        condition.type ==
-        AutomationConditionType::TIME
-    ) {
-        uint16_t totalMinutes =
-            condition.value;
-
-        uint16_t hour =
-            totalMinutes / 60;
-
-        uint16_t minute =
-            totalMinutes % 60;
-
-        if (hour < 10) {
-            Serial.print("0");
-        }
-
-        Serial.print(hour);
-
-        Serial.print(":");
-
-        if (minute < 10) {
-            Serial.print("0");
-        }
-
-        Serial.println(minute);
-    }
-    else {
-        Serial.println(
-            condition.value
-        );
-    }
-}
-
-void printAutomation(
-    const Automation& automation
-) {
-    Serial.println();
-    Serial.println(
-        "===== AUTOMATISATION ====="
-    );
-
-    Serial.print("ID          : ");
-    Serial.println(
-        automation.id
-    );
-
-    Serial.print("Nom         : ");
-    Serial.println(
-        automation.name
-    );
-
-    Serial.print("Etat        : ");
-
-    Serial.println(
-        automation.enabled
-            ? "ACTIVE"
-            : "INACTIVE"
-    );
-
-    Serial.print("Logique     : ");
-
-    Serial.println(
-        automation.logic ==
-        AutomationLogic::AND
-            ? "AND"
-            : "OR"
-    );
-
-    Serial.print("Scene       : ");
-
-    Serial.println(
-        automation.sceneId
-    );
-
-    Serial.print("Conditions  : ");
-
-    Serial.println(
-        automation.conditionCount
-    );
-
-    for (
-        uint8_t i = 0;
-        i < automation.conditionCount;
-        i++
-    ) {
-        Serial.print(
-            "  Condition #"
-        );
-
-        Serial.print(i);
-
-        Serial.print(" : ");
-
-        printCondition(
-            automation.conditions[i]
-        );
-    }
-
-    Serial.print(
-        "Delai       : "
-    );
-
-    Serial.print(
-        automation.triggerDelayMs
-    );
-
-    Serial.println(
-        " ms"
-    );
-
-    Serial.print(
-        "Cooldown    : "
-    );
-
-    Serial.print(
-        automation.cooldownMs
-    );
-
-    Serial.println(
-        " ms"
-    );
-
-    Serial.print(
-        "Mode        : "
-    );
-
-    Serial.println(
-        automation.triggerMode ==
-        AutomationTriggerMode::ONCE
-            ? "ONCE"
-            : "REPEAT"
-    );
-
-    Serial.println(
-        "=========================="
-    );
 }
 
 
@@ -515,6 +253,7 @@ bool addActionToAutomation(
     return true;
 }
 
+
 bool removeActionFromAutomation(
     AutomationRegistry& registry,
     uint32_t automationId,
@@ -550,6 +289,286 @@ bool removeActionFromAutomation(
 
     return true;
 }
+
+
+void printAutomation(
+    const Automation& automation
+) {
+    Serial.println();
+    Serial.println(
+        "===== AUTOMATISATION ====="
+    );
+
+    Serial.print(
+        "ID          : "
+    );
+
+    Serial.println(
+        automation.id
+    );
+
+    Serial.print(
+        "Nom         : "
+    );
+
+    Serial.println(
+        automation.name
+    );
+
+    Serial.print(
+        "Etat        : "
+    );
+
+    Serial.println(
+        automation.enabled
+            ? "ACTIVE"
+            : "DESACTIVE"
+    );
+
+    Serial.print(
+        "Logique     : "
+    );
+
+    Serial.println(
+        automation.logic ==
+            AutomationLogic::AND
+            ? "AND"
+            : "OR"
+    );
+
+    Serial.print(
+        "Conditions  : "
+    );
+
+    Serial.println(
+        automation.conditionCount
+    );
+
+    for (
+        uint8_t i = 0;
+        i < automation.conditionCount;
+        i++
+    ) {
+        const AutomationCondition&
+            condition =
+                automation.conditions[i];
+
+        Serial.print(
+            "  Condition #"
+        );
+
+        Serial.print(i);
+
+        Serial.print(
+            " : "
+        );
+
+        switch (condition.type) {
+
+            case AutomationConditionType::LIGHT_LEVEL:
+                Serial.print(
+                    "LUMINOSITE"
+                );
+                break;
+
+            case AutomationConditionType::PRESENCE:
+                Serial.print(
+                    "PRESENCE"
+                );
+                break;
+
+            case AutomationConditionType::TIME:
+                Serial.print(
+                    "HEURE"
+                );
+                break;
+        }
+
+        Serial.print(" ");
+
+        switch (condition.op) {
+
+            case AutomationOperator::LESS_THAN:
+                Serial.print("<");
+                break;
+
+            case AutomationOperator::LESS_OR_EQUAL:
+                Serial.print("<=");
+                break;
+
+            case AutomationOperator::GREATER_THAN:
+                Serial.print(">");
+                break;
+
+            case AutomationOperator::GREATER_OR_EQUAL:
+                Serial.print(">=");
+                break;
+
+            case AutomationOperator::EQUAL:
+                Serial.print("=");
+                break;
+        }
+
+        if (
+            condition.type ==
+            AutomationConditionType::TIME
+        ) {
+            uint32_t minutes =
+                condition.value;
+
+            uint32_t hour =
+                minutes / 60;
+
+            uint32_t minute =
+                minutes % 60;
+
+            if (hour < 10) {
+                Serial.print("0");
+            }
+
+            Serial.print(hour);
+
+            Serial.print(":");
+
+            if (minute < 10) {
+                Serial.print("0");
+            }
+
+            Serial.print(minute);
+        }
+        else {
+            Serial.print(
+                condition.value
+            );
+        }
+
+        Serial.println();
+    }
+
+    Serial.print(
+        "Actions     : "
+    );
+
+    Serial.println(
+        automation.actionCount
+    );
+
+    for (
+        uint8_t i = 0;
+        i < automation.actionCount;
+        i++
+    ) {
+        const AutomationAction&
+            action =
+                automation.actions[i];
+
+        Serial.print(
+            "  Action #"
+        );
+
+        Serial.print(i);
+
+        Serial.print(
+            " : "
+        );
+
+        switch (action.type) {
+
+            case ActionType::EXECUTE_SCENE:
+                Serial.print(
+                    "EXECUTE_SCENE"
+                );
+                break;
+
+            case ActionType::SET_LAMP_POWER:
+                Serial.print(
+                    "SET_LAMP_POWER"
+                );
+                break;
+
+            case ActionType::SET_LAMP_BRIGHTNESS:
+                Serial.print(
+                    "SET_LAMP_BRIGHTNESS"
+                );
+                break;
+
+            case ActionType::SET_LAMP_AUTOMATIC:
+                Serial.print(
+                    "SET_LAMP_AUTOMATIC"
+                );
+                break;
+
+            case ActionType::SET_GROUP_POWER:
+                Serial.print(
+                    "SET_GROUP_POWER"
+                );
+                break;
+
+            case ActionType::SET_GROUP_BRIGHTNESS:
+                Serial.print(
+                    "SET_GROUP_BRIGHTNESS"
+                );
+                break;
+        }
+
+        Serial.print(
+            " -> ID="
+        );
+
+        Serial.print(
+            action.targetId
+        );
+
+        Serial.print(
+            " VALUE="
+        );
+
+        Serial.println(
+            action.value
+        );
+    }
+
+    Serial.print(
+        "Delai       : "
+    );
+
+    Serial.print(
+        automation.triggerDelayMs
+    );
+
+    Serial.println(
+        " ms"
+    );
+
+    Serial.print(
+        "Cooldown    : "
+    );
+
+    Serial.print(
+        automation.cooldownMs
+    );
+
+    Serial.println(
+        " ms"
+    );
+
+    Serial.print(
+        "Mode        : "
+    );
+
+    Serial.println(
+        automation.triggerMode ==
+            AutomationTriggerMode::ONCE
+            ? "ONCE"
+            : "REPEAT"
+    );
+
+    Serial.println(
+        "=========================="
+    );
+}
+
+
 void printAutomationRegistry(
     const AutomationRegistry& registry
 ) {

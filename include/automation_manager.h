@@ -5,30 +5,35 @@
 #include "automation.h"
 #include "scene_manager.h"
 
+
 struct AutomationRegistry {
     Automation automations[MAX_AUTOMATIONS];
     uint8_t count;
 };
 
+
 void initAutomationRegistry(
     AutomationRegistry& registry
 );
 
+
 bool addAutomation(
     AutomationRegistry& registry,
-    SceneRegistry& scenes,
     const Automation& automation
 );
+
 
 bool removeAutomation(
     AutomationRegistry& registry,
     uint32_t automationId
 );
 
+
 Automation* findAutomation(
     AutomationRegistry& registry,
     uint32_t automationId
 );
+
 
 bool addConditionToAutomation(
     AutomationRegistry& registry,
@@ -36,11 +41,13 @@ bool addConditionToAutomation(
     const AutomationCondition& condition
 );
 
+
 bool removeConditionFromAutomation(
     AutomationRegistry& registry,
     uint32_t automationId,
     uint8_t conditionIndex
 );
+
 
 bool addActionToAutomation(
     AutomationRegistry& registry,
@@ -48,25 +55,18 @@ bool addActionToAutomation(
     const AutomationAction& action
 );
 
+
 bool removeActionFromAutomation(
     AutomationRegistry& registry,
     uint32_t automationId,
     uint8_t actionIndex
 );
 
-bool enableAutomation(
-    AutomationRegistry& registry,
-    uint32_t automationId
-);
-
-bool disableAutomation(
-    AutomationRegistry& registry,
-    uint32_t automationId
-);
 
 void printAutomation(
     const Automation& automation
 );
+
 
 void printAutomationRegistry(
     const AutomationRegistry& registry
