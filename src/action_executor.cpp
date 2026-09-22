@@ -1,21 +1,44 @@
 #include <Arduino.h>
 
 #include "action_executor.h"
-#include "lamp_controller.h"
+
 #include "scene_executor.h"
 #include "group_command_handler.h"
+#include "lamp_controller.h"
 
-bool executeAction(
+
+static ExecutionStatus convertSceneStatus(
+    SceneExecutionStatus status
+) {
+
+    switch (status) {
+
+        case SceneExecutionStatus::EXECUTED:
+            return ExecutionStatus::EXECUTED;
+
+        case SceneExecutionStatus::PARTIAL:
+            return ExecutionStatus::PARTIAL;
+
+        case SceneExecutionStatus::FAILED:
+            return ExecutionStatus::FAILED;
+    }
+
+    return ExecutionStatus::FAILED;
+}
+
+
+ExecutionStatus executeAction(
     const Action& action,
     SceneRegistry& scenes,
     GroupRegistry& groups,
     LampRegistry& lamps
 ) {
+
     switch (action.type) {
 
-        // =====================================
+        // ====================================================
         // SCENE
-        // =====================================
+        // ====================================================
 
         case ActionType::EXECUTE_SCENE: {
 
@@ -27,9 +50,11 @@ bool executeAction(
                 action.targetId
             );
 
+
             SceneExecutionResult result;
 
-            SceneExecutionStatus status =
+
+            SceneExecutionStatus sceneStatus =
                 executeScene(
                     scenes,
                     groups,
@@ -38,94 +63,19 @@ bool executeAction(
                     result
                 );
 
-            return (
-                status !=
-                SceneExecutionStatus::FAILED
+
+            return convertSceneStatus(
+                sceneStatus
             );
         }
 
-        // =====================================
-        // LAMPE POWER
-        // =====================================
 
-        case ActionType::SET_LAMP_POWER: {
+        // ====================================================
+        // LAMPE
+        // ====================================================
 
-            Lamp* lamp =
-                findLamp(
-                    lamps,
-                    action.targetId
-                );
-
-            if (lamp == nullptr) {
-                Serial.println(
-                    "Action impossible : lampe introuvable"
-                );
-
-                return false;
-            }
-
-            if (
-                lamp->device.status ==
-                DeviceStatus::OFFLINE
-            ) {
-                Serial.println(
-                    "Action impossible : lampe OFFLINE"
-                );
-
-                return false;
-            }
-
-            setLampPower(
-                *lamp,
-                action.value != 0
-            );
-
-            return true;
-        }
-
-        // =====================================
-        // LAMPE BRIGHTNESS
-        // =====================================
-
-        case ActionType::SET_LAMP_BRIGHTNESS: {
-
-            Lamp* lamp =
-                findLamp(
-                    lamps,
-                    action.targetId
-                );
-
-            if (lamp == nullptr) {
-                Serial.println(
-                    "Action impossible : lampe introuvable"
-                );
-
-                return false;
-            }
-
-            if (
-                lamp->device.status ==
-                DeviceStatus::OFFLINE
-            ) {
-                Serial.println(
-                    "Action impossible : lampe OFFLINE"
-                );
-
-                return false;
-            }
-
-            setLampBrightness(
-                *lamp,
-                action.value
-            );
-
-            return true;
-        }
-
-        // =====================================
-        // LAMPE AUTOMATIC
-        // =====================================
-
+        case ActionType::SET_LAMP_POWER:
+        case ActionType::SET_LAMP_BRIGHTNESS:
         case ActionType::SET_LAMP_AUTOMATIC: {
 
             Lamp* lamp =
@@ -134,75 +84,136 @@ bool executeAction(
                     action.targetId
                 );
 
+
             if (lamp == nullptr) {
+
                 Serial.println(
-                    "Action impossible : lampe introuvable"
+                    "Lampe introuvable"
                 );
 
-                return false;
+                return ExecutionStatus::FAILED;
             }
+
 
             if (
-                lamp->device.status ==
-                DeviceStatus::OFFLINE
+                lamp->device.status
+                != DeviceStatus::ONLINE
             ) {
-                Serial.println(
-                    "Action impossible : lampe OFFLINE"
+
+                Serial.print(
+                    "Lampe OFFLINE - commande ignoree : "
                 );
 
-                return false;
+                Serial.println(
+                    lamp->device.name
+                );
+
+                return ExecutionStatus::FAILED;
             }
 
-            setLampAutomatic(
-                *lamp,
-                action.value != 0
-            );
 
-            return true;
+            switch (action.type) {
+
+                case ActionType::SET_LAMP_POWER:
+
+                    setLampPower(
+                        *lamp,
+                        action.value != 0
+                    );
+
+                    break;
+
+
+                case ActionType::SET_LAMP_BRIGHTNESS:
+
+                    setLampBrightness(
+                        *lamp,
+                        action.value
+                    );
+
+                    break;
+
+
+                case ActionType::SET_LAMP_AUTOMATIC:
+
+                    setLampAutomatic(
+                        *lamp,
+                        action.value != 0
+                    );
+
+                    break;
+
+
+                default:
+
+                    return ExecutionStatus::FAILED;
+            }
+
+
+            return ExecutionStatus::EXECUTED;
         }
 
-        // =====================================
-        // GROUPE POWER
-        // =====================================
 
-        case ActionType::SET_GROUP_POWER: {
+        // ====================================================
+        // GROUPE
+        // ====================================================
 
-            Command command = {
-                0,
-                action.targetId,
-                CommandType::SET_GROUP_POWER,
-                action.value,
-                CommandStatus::PENDING
-            };
-
-            return executeGroupCommand(
-                groups,
-                lamps,
-                command
-            );
-        }
-
-        // =====================================
-        // GROUPE BRIGHTNESS
-        // =====================================
-
+        case ActionType::SET_GROUP_POWER:
         case ActionType::SET_GROUP_BRIGHTNESS: {
 
             Command command = {
+
                 0,
+
                 action.targetId,
-                CommandType::SET_GROUP_BRIGHTNESS,
+
+                action.type ==
+                    ActionType::SET_GROUP_POWER
+                    ? CommandType::SET_GROUP_POWER
+                    : CommandType::SET_GROUP_BRIGHTNESS,
+
                 action.value,
+
                 CommandStatus::PENDING
             };
 
-            return executeGroupCommand(
-                groups,
-                lamps,
-                command
-            );
+
+            bool success =
+                executeGroupCommand(
+                    groups,
+                    lamps,
+                    command
+                );
+
+
+            if (!success) {
+
+                return ExecutionStatus::FAILED;
+            }
+
+
+            if (
+                command.status ==
+                CommandStatus::PARTIAL
+            ) {
+
+                return ExecutionStatus::PARTIAL;
+            }
+
+
+            if (
+                command.status ==
+                CommandStatus::EXECUTED
+            ) {
+
+                return ExecutionStatus::EXECUTED;
+            }
+
+
+            return ExecutionStatus::FAILED;
         }
     }
 
-    return false;
+
+    return ExecutionStatus::FAILED;
 }

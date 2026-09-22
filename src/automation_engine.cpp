@@ -2,6 +2,7 @@
 
 #include "automation_engine.h"
 #include "action_executor.h"
+#include "message_manager.h"
 
 
 bool evaluateCondition(
@@ -136,6 +137,7 @@ void processAutomations(
                 context
             );
 
+
         /*
          * ==========================
          * CONDITION FALSE
@@ -161,6 +163,7 @@ void processAutomations(
             continue;
         }
 
+
         /*
          * ==========================
          * NOUVELLE CONDITION TRUE
@@ -183,6 +186,7 @@ void processAutomations(
             continue;
         }
 
+
         /*
          * ==========================
          * DELAI
@@ -195,6 +199,7 @@ void processAutomations(
         ) {
             continue;
         }
+
 
         /*
          * ==========================
@@ -209,6 +214,7 @@ void processAutomations(
         ) {
             continue;
         }
+
 
         /*
          * ==========================
@@ -228,6 +234,7 @@ void processAutomations(
             }
         }
 
+
         /*
          * ==========================
          * DECLENCHEMENT
@@ -244,6 +251,7 @@ void processAutomations(
             automation.name
         );
 
+
         /*
          * ==========================
          * EXECUTION DES ACTIONS
@@ -251,18 +259,22 @@ void processAutomations(
          */
 
         uint8_t actionsExecuted = 0;
+        uint8_t actionsPartial = 0;
         uint8_t actionsFailed = 0;
+
 
         for (
             uint8_t actionIndex = 0;
             actionIndex < automation.actionCount;
             actionIndex++
         ) {
+
             const AutomationAction&
                 automationAction =
                     automation.actions[
                         actionIndex
                     ];
+
 
             Serial.print(
                 "Action #"
@@ -272,13 +284,18 @@ void processAutomations(
                 actionIndex
             );
 
+
             Action action = {
+
                 automationAction.type,
+
                 automationAction.targetId,
+
                 automationAction.value
             };
 
-            bool success =
+
+            ExecutionStatus result =
                 executeAction(
                     action,
                     scenes,
@@ -286,13 +303,34 @@ void processAutomations(
                     lamps
                 );
 
-            if (success) {
-                actionsExecuted++;
-            }
-            else {
-                actionsFailed++;
+
+            Serial.print(
+                "Resultat action : "
+            );
+
+            Serial.println(
+                executionStatusToString(
+                    result
+                )
+            );
+
+
+            switch (result) {
+
+                case ExecutionStatus::EXECUTED:
+                    actionsExecuted++;
+                    break;
+
+                case ExecutionStatus::PARTIAL:
+                    actionsPartial++;
+                    break;
+
+                case ExecutionStatus::FAILED:
+                    actionsFailed++;
+                    break;
             }
         }
+
 
         /*
          * ==========================
@@ -306,6 +344,7 @@ void processAutomations(
             "===== RESULTAT AUTOMATISATION ====="
         );
 
+
         Serial.print(
             "Actions executees : "
         );
@@ -313,6 +352,16 @@ void processAutomations(
         Serial.println(
             actionsExecuted
         );
+
+
+        Serial.print(
+            "Actions partielles : "
+        );
+
+        Serial.println(
+            actionsPartial
+        );
+
 
         Serial.print(
             "Actions echouees : "
@@ -322,11 +371,14 @@ void processAutomations(
             actionsFailed
         );
 
+
         Serial.println(
             "==================================="
         );
 
+
         automation.lastTriggered = now;
+
 
         /*
          * ==========================
@@ -338,6 +390,7 @@ void processAutomations(
             automation.triggerMode ==
             AutomationTriggerMode::ONCE
         ) {
+
             Serial.println(
                 "Mode ONCE : attente du retour a FALSE"
             );

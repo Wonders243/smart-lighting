@@ -50,7 +50,7 @@ CommunicationBus communication;
 
 
 // ============================================================
-// CREATION MESSAGE
+// ENVOI COMMANDE
 // ============================================================
 
 void sendCommand(
@@ -63,7 +63,8 @@ void sendCommand(
 
         generateMessageId(),
 
-        0,                  // CORE
+        0,
+
         destinationId,
 
         MessageType::COMMAND,
@@ -78,7 +79,9 @@ void sendCommand(
 
         0,
 
-        MessageStatus::PENDING
+        MessageStatus::PENDING,
+
+        ExecutionStatus::FAILED
     };
 
 
@@ -101,12 +104,13 @@ void setup() {
 
 
     Serial.println();
+
     Serial.println(
         "=============================="
     );
 
     Serial.println(
-        "      SMART LIGHTING V3.2"
+        "      SMART LIGHTING V3.3"
     );
 
     Serial.println(
@@ -218,7 +222,7 @@ void setup() {
 
 
     // ========================================================
-    // GROUPE
+    // GROUPE ENTREE
     // ========================================================
 
     LampGroup entree = {
@@ -261,7 +265,7 @@ void setup() {
 
 
     // ========================================================
-    // SCENE
+    // SCENE SOIR
     // ========================================================
 
     Scene soir = {
@@ -312,22 +316,13 @@ void setup() {
 
 
     // ========================================================
-    // TEST V3.2
+    // TEST 1
     // ========================================================
 
     Serial.println();
+
     Serial.println(
-        "===== TEST V3.2 ====="
-    );
-
-
-    // --------------------------------------------------------
-    // 1. LAMP_01 ON
-    // --------------------------------------------------------
-
-    Serial.println();
-    Serial.println(
-        "[1] LAMP_01 -> ON"
+        "===== TEST 1 : LAMPE ====="
     );
 
 
@@ -346,63 +341,14 @@ void setup() {
     );
 
 
-    // --------------------------------------------------------
-    // 2. LAMP_01 BRIGHTNESS 75
-    // --------------------------------------------------------
+    // ========================================================
+    // TEST 2
+    // ========================================================
 
     Serial.println();
+
     Serial.println(
-        "[2] LAMP_01 -> 75%"
-    );
-
-
-    sendCommand(
-        1,
-        ActionType::SET_LAMP_BRIGHTNESS,
-        75
-    );
-
-
-    processMessages(
-        communication,
-        lampRegistry,
-        groupRegistry,
-        sceneRegistry
-    );
-
-
-    // --------------------------------------------------------
-    // 3. LAMP_01 AUTOMATIC ON
-    // --------------------------------------------------------
-
-    Serial.println();
-    Serial.println(
-        "[3] LAMP_01 -> AUTOMATIC"
-    );
-
-
-    sendCommand(
-        1,
-        ActionType::SET_LAMP_AUTOMATIC,
-        1
-    );
-
-
-    processMessages(
-        communication,
-        lampRegistry,
-        groupRegistry,
-        sceneRegistry
-    );
-
-
-    // --------------------------------------------------------
-    // 4. GROUPE ENTREE -> ON
-    // --------------------------------------------------------
-
-    Serial.println();
-    Serial.println(
-        "[4] GROUPE ENTREE -> ON"
+        "===== TEST 2 : GROUPE PARTIEL ====="
     );
 
 
@@ -421,38 +367,14 @@ void setup() {
     );
 
 
-    // --------------------------------------------------------
-    // 5. GROUPE ENTREE -> 40%
-    // --------------------------------------------------------
+    // ========================================================
+    // TEST 3
+    // ========================================================
 
     Serial.println();
+
     Serial.println(
-        "[5] GROUPE ENTREE -> 40%"
-    );
-
-
-    sendCommand(
-        1,
-        ActionType::SET_GROUP_BRIGHTNESS,
-        40
-    );
-
-
-    processMessages(
-        communication,
-        lampRegistry,
-        groupRegistry,
-        sceneRegistry
-    );
-
-
-    // --------------------------------------------------------
-    // 6. SCENE SOIR
-    // --------------------------------------------------------
-
-    Serial.println();
-    Serial.println(
-        "[6] SCENE SOIR"
+        "===== TEST 3 : SCENE PARTIELLE ====="
     );
 
 
@@ -472,31 +394,35 @@ void setup() {
 
 
     // ========================================================
-    // ETAT FINAL
+    // ETATS FINAUX
     // ========================================================
 
     Serial.println();
+
     Serial.println(
         "===== ETATS FINAUX ====="
     );
 
 
-    Lamp* lamp01 = findLamp(
-        lampRegistry,
-        1
-    );
+    Lamp* lamp01 =
+        findLamp(
+            lampRegistry,
+            1
+        );
 
 
-    Lamp* lamp02 = findLamp(
-        lampRegistry,
-        2
-    );
+    Lamp* lamp02 =
+        findLamp(
+            lampRegistry,
+            2
+        );
 
 
-    Lamp* lamp03 = findLamp(
-        lampRegistry,
-        3
-    );
+    Lamp* lamp03 =
+        findLamp(
+            lampRegistry,
+            3
+        );
 
 
     if (lamp01 != nullptr) {
@@ -524,12 +450,13 @@ void setup() {
 
 
     Serial.println();
+
     Serial.println(
         "=============================="
     );
 
     Serial.println(
-        " SMART LIGHTING V3.2 READY"
+        " SMART LIGHTING V3.3 READY"
     );
 
     Serial.println(

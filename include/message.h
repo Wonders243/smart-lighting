@@ -10,6 +10,7 @@ enum class MessageType {
     ACK
 };
 
+
 enum class MessageStatus {
     PENDING,
     SENT,
@@ -17,7 +18,17 @@ enum class MessageStatus {
     FAILED
 };
 
+
+// Résultat réel d'une commande
+enum class ExecutionStatus {
+    EXECUTED,
+    PARTIAL,
+    FAILED
+};
+
+
 struct Message {
+
     uint32_t id;
 
     uint32_t sourceId;
@@ -28,8 +39,14 @@ struct Message {
     uint32_t timestamp;
 
     int32_t commandType;
+
     int32_t value;
+
     int32_t value2;
 
     MessageStatus status;
+
+    // Résultat réel de l'exécution.
+    // Principalement utilisé par les ACK.
+    ExecutionStatus executionStatus;
 };

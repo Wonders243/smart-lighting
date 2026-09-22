@@ -3,7 +3,9 @@
 #include "message_manager.h"
 
 
-const char* messageTypeToString(MessageType type) {
+const char* messageTypeToString(
+    MessageType type
+) {
 
     switch (type) {
 
@@ -27,7 +29,9 @@ const char* messageTypeToString(MessageType type) {
 }
 
 
-const char* messageStatusToString(MessageStatus status) {
+const char* messageStatusToString(
+    MessageStatus status
+) {
 
     switch (status) {
 
@@ -48,7 +52,29 @@ const char* messageStatusToString(MessageStatus status) {
 }
 
 
-void printMessage(const Message& message) {
+const char* executionStatusToString(
+    ExecutionStatus status
+) {
+
+    switch (status) {
+
+        case ExecutionStatus::EXECUTED:
+            return "EXECUTED";
+
+        case ExecutionStatus::PARTIAL:
+            return "PARTIAL";
+
+        case ExecutionStatus::FAILED:
+            return "FAILED";
+    }
+
+    return "UNKNOWN";
+}
+
+
+void printMessage(
+    const Message& message
+) {
 
     Serial.println("===== MESSAGE =====");
 
@@ -81,6 +107,13 @@ void printMessage(const Message& message) {
     Serial.print("Status : ");
     Serial.println(
         messageStatusToString(message.status)
+    );
+
+    Serial.print("Execution : ");
+    Serial.println(
+        executionStatusToString(
+            message.executionStatus
+        )
     );
 
     Serial.println("===================");

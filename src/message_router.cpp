@@ -22,24 +22,27 @@ static bool isValidActionType(
 }
 
 
-static bool executeCommandMessage(
+static ExecutionStatus executeCommandMessage(
     const Message& message,
     LampRegistry& lamps,
     GroupRegistry& groups,
     SceneRegistry& scenes
 ) {
 
-    if (!isValidActionType(message.commandType)) {
+    if (!isValidActionType(
+        message.commandType
+    )) {
 
         Serial.println(
             "Type de commande invalide"
         );
 
-        return false;
+        return ExecutionStatus::FAILED;
     }
 
 
     Action action = {
+
         static_cast<ActionType>(
             message.commandType
         ),
@@ -61,7 +64,7 @@ static bool executeCommandMessage(
 
 static Message createAck(
     const Message& command,
-    bool success
+    ExecutionStatus executionStatus
 ) {
 
     Message ack = {
@@ -69,6 +72,7 @@ static Message createAck(
         generateMessageId(),
 
         command.destinationId,
+
         command.sourceId,
 
         MessageType::ACK,
@@ -77,14 +81,19 @@ static Message createAck(
 
         command.commandType,
 
-        success ? 1 : 0,
+        static_cast<int32_t>(
+            executionStatus
+        ),
 
         static_cast<int32_t>(
             command.id
         ),
 
-        MessageStatus::PENDING
+        MessageStatus::PENDING,
+
+        executionStatus
     };
+
 
     return ack;
 }
@@ -100,31 +109,40 @@ void processMessages(
     Message message;
 
 
-    while (receiveMessage(
-        communication,
-        message
-    )) {
+    while (
+        receiveMessage(
+            communication,
+            message
+        )
+    ) {
 
         Serial.println();
+
         Serial.println(
             ">>> MESSAGE RECU"
         );
 
-        printMessage(message);
+
+        printMessage(
+            message
+        );
 
 
         // ====================================================
         // COMMAND
         // ====================================================
 
-        if (message.type == MessageType::COMMAND) {
+        if (
+            message.type ==
+            MessageType::COMMAND
+        ) {
 
             Serial.println(
                 ">>> EXECUTION COMMANDE"
             );
 
 
-            bool success =
+            ExecutionStatus result =
                 executeCommandMessage(
                     message,
                     lamps,
@@ -133,18 +151,32 @@ void processMessages(
                 );
 
 
+            Serial.print(
+                "Resultat execution : "
+            );
+
+            Serial.println(
+                executionStatusToString(
+                    result
+                )
+            );
+
+
+            // ------------------------------------------------
+            // ACK
+            // ------------------------------------------------
+
             Message ack =
                 createAck(
                     message,
-                    success
+                    result
                 );
 
 
-            if (success) {
-
-                Serial.println(
-                    "Commande executee"
-                );
+            if (
+                result ==
+                ExecutionStatus::EXECUTED
+            ) {
 
                 message.status =
                     MessageStatus::DELIVERED;
@@ -152,23 +184,17 @@ void processMessages(
 
             else {
 
-                Serial.println(
-                    "Echec execution commande"
-                );
-
                 message.status =
                     MessageStatus::FAILED;
             }
 
 
-            // ------------------------------------------------
-            // ACK
-            // ------------------------------------------------
-
-            if (sendMessage(
-                communication,
-                ack
-            )) {
+            if (
+                sendMessage(
+                    communication,
+                    ack
+                )
+            ) {
 
                 Serial.println(
                     "ACK genere"
@@ -182,12 +208,14 @@ void processMessages(
         // ====================================================
 
         else if (
-            message.type == MessageType::ACK
+            message.type ==
+            MessageType::ACK
         ) {
 
             Serial.println(
                 ">>> ACK RECU"
             );
+
 
             Serial.print(
                 "Message original : "
@@ -198,24 +226,21 @@ void processMessages(
             );
 
 
-            if (message.value == 1) {
+            Serial.print(
+                "Resultat : "
+            );
 
-                Serial.println(
-                    "Resultat : SUCCES"
-                );
-            }
 
-            else {
-
-                Serial.println(
-                    "Resultat : ECHEC"
-                );
-            }
+            Serial.println(
+                executionStatusToString(
+                    message.executionStatus
+                )
+            );
         }
 
 
         // ====================================================
-        // AUTRES MESSAGES
+        // AUTRES
         // ====================================================
 
         else {
@@ -224,5 +249,8 @@ void processMessages(
                 "Message non executable"
             );
         }
+
+
+        Serial.println();
     }
 }
