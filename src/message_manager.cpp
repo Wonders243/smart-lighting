@@ -2,9 +2,9 @@
 
 #include "message_manager.h"
 
-const char* messageTypeToString(
-    MessageType type
-) {
+
+const char* messageTypeToString(MessageType type) {
+
     switch (type) {
 
         case MessageType::COMMAND:
@@ -27,9 +27,8 @@ const char* messageTypeToString(
 }
 
 
-const char* messageStatusToString(
-    MessageStatus status
-) {
+const char* messageStatusToString(MessageStatus status) {
+
     switch (status) {
 
         case MessageStatus::PENDING:
@@ -49,50 +48,40 @@ const char* messageStatusToString(
 }
 
 
-void printMessage(
-    const Message& message
-) {
-    Serial.println();
-    Serial.println(
-        "===== MESSAGE ====="
-    );
+void printMessage(const Message& message) {
 
-    Serial.print("ID          : ");
+    Serial.println("===== MESSAGE =====");
+
+    Serial.print("ID : ");
     Serial.println(message.id);
 
-    Serial.print("Source      : ");
+    Serial.print("Source : ");
     Serial.println(message.sourceId);
 
     Serial.print("Destination : ");
     Serial.println(message.destinationId);
 
-    Serial.print("Type        : ");
+    Serial.print("Type : ");
     Serial.println(
-        messageTypeToString(
-            message.type
-        )
+        messageTypeToString(message.type)
     );
 
-    Serial.print("Timestamp   : ");
+    Serial.print("Timestamp : ");
     Serial.println(message.timestamp);
 
-    Serial.print("Command     : ");
+    Serial.print("Command : ");
     Serial.println(message.commandType);
 
-    Serial.print("Value       : ");
+    Serial.print("Value : ");
     Serial.println(message.value);
 
-    Serial.print("Value 2     : ");
+    Serial.print("Value 2 : ");
     Serial.println(message.value2);
 
-    Serial.print("Status      : ");
+    Serial.print("Status : ");
     Serial.println(
-        messageStatusToString(
-            message.status
-        )
+        messageStatusToString(message.status)
     );
 
-    Serial.println(
-        "==================="
-    );
+    Serial.println("===================");
 }
