@@ -1,70 +1,34 @@
 #include <Arduino.h>
 
-#include "roles.h"
-
-#include "device.h"
+#include "device_registry.h"
+#include "group_manager.h"
+#include "scene_manager.h"
+#include "automation_manager.h"
+#include "event_bus.h"
+#include "communication.h"
+#include "message_tracker.h"
+#include "message_router.h"
+#include "message_id_generator.h"
 #include "device_manager.h"
 
-#include "lamp.h"
-#include "lamp_controller.h"
-
-#include "device_registry.h"
-
-#include "group_manager.h"
-
-#include "scene_manager.h"
-#include "scene_executor.h"
-
-#include "automation_manager.h"
-#include "automation_engine.h"
-#include "action_executor.h"
-
-#include "event.h"
-#include "event_bus.h"
-#include "event_processor.h"
-#include "id_generator.h"
-#include "automation_context.h"
-
-#include "message.h"
-#include "message_manager.h"
-#include "communication.h"
-#include "message_id_generator.h"
-#include "message_router.h"
-
-
-// ============================================================
-// REGISTRES
-// ============================================================
-
 LampRegistry lampRegistry;
-
 GroupRegistry groupRegistry;
-
 SceneRegistry sceneRegistry;
-
 AutomationRegistry automationRegistry;
-
 EventBus eventBus;
 
 CommunicationBus communication;
+MessageTracker messageTracker;
 
-
-// ============================================================
-// ENVOI COMMANDE
-// ============================================================
-
-void sendCommand(
+static void sendCommand(
     uint32_t destinationId,
     ActionType actionType,
     int32_t value
 ) {
-
     Message command = {
-
         generateMessageId(),
 
         0,
-
         destinationId,
 
         MessageType::COMMAND,
@@ -84,43 +48,43 @@ void sendCommand(
         ExecutionStatus::NOT_EXECUTED
     };
 
+    /*
+     * Le message est d'abord enregistré
+     * dans le tracker.
+     */
+    trackMessage(
+        messageTracker,
+        command
+    );
 
+    /*
+     * Puis envoyé dans le bus.
+     */
     sendMessage(
         communication,
         command
     );
 }
 
-
-// ============================================================
-// SETUP
-// ============================================================
-
 void setup() {
 
     Serial.begin(115200);
-
     delay(1000);
 
-
     Serial.println();
-
+    Serial.println(
+        "=============================="
+    );
+    Serial.println(
+        "      SMART LIGHTING V3.5"
+    );
     Serial.println(
         "=============================="
     );
 
-    Serial.println(
-        "      SMART LIGHTING V3.4"
-    );
-
-    Serial.println(
-        "=============================="
-    );
-
-
-    // ========================================================
-    // INITIALISATION
-    // ========================================================
+    /*
+     * INITIALISATION
+     */
 
     initLampRegistry(
         lampRegistry
@@ -146,13 +110,15 @@ void setup() {
         communication
     );
 
+    initMessageTracker(
+        messageTracker
+    );
 
-    // ========================================================
-    // LAMPES
-    // ========================================================
+    /*
+     * LAMPES
+     */
 
     Lamp lamp1 = {
-
         {
             1,
             "LAMP_01",
@@ -168,9 +134,7 @@ void setup() {
         }
     };
 
-
     Lamp lamp2 = {
-
         {
             2,
             "LAMP_02",
@@ -186,9 +150,7 @@ void setup() {
         }
     };
 
-
     Lamp lamp3 = {
-
         {
             3,
             "LAMP_03",
@@ -203,7 +165,6 @@ void setup() {
             false
         }
     };
-
 
     addLamp(
         lampRegistry,
@@ -220,25 +181,21 @@ void setup() {
         lamp3
     );
 
+    /*
+     * GROUPE
+     */
 
-    // ========================================================
-    // GROUPE ENTREE
-    // ========================================================
-
-    LampGroup entree = {
-
+    LampGroup entrance = {
         1,
         "ENTREE",
         {},
         0
     };
 
-
     addGroup(
         groupRegistry,
-        entree
+        entrance
     );
-
 
     addLampToGroup(
         groupRegistry,
@@ -246,7 +203,6 @@ void setup() {
         1,
         1
     );
-
 
     addLampToGroup(
         groupRegistry,
@@ -255,7 +211,6 @@ void setup() {
         2
     );
 
-
     addLampToGroup(
         groupRegistry,
         lampRegistry,
@@ -263,203 +218,83 @@ void setup() {
         3
     );
 
+    /*
+     * SCENE
+     */
 
-    // ========================================================
-    // SCENE SOIR
-    // ========================================================
-
-    Scene soir = {
-
+    Scene evening = {
         1,
         "SOIR",
         {},
         0
     };
 
-
     addScene(
         sceneRegistry,
-        soir
+        evening
     );
 
-
-    SceneAction scenePower = {
-
+    SceneAction powerAction = {
         1,
         CommandType::SET_GROUP_POWER,
         1
     };
 
-
-    SceneAction sceneBrightness = {
-
-        1,
-        CommandType::SET_GROUP_BRIGHTNESS,
-        40
-    };
-
-
     addActionToScene(
         sceneRegistry,
         groupRegistry,
         1,
-        scenePower
+        powerAction
     );
-
-
-    addActionToScene(
-        sceneRegistry,
-        groupRegistry,
-        1,
-        sceneBrightness
-    );
-
-
-    // ========================================================
-    // TEST 1
-    // EXECUTED
-    // ========================================================
 
     Serial.println();
-
     Serial.println(
-        "===== TEST 1 : EXECUTED ====="
+        "===== TEST V3.5 ====="
     );
 
-
+    /*
+     * Envoi d'une commande.
+     */
     sendCommand(
         1,
         ActionType::SET_LAMP_POWER,
         1
     );
 
-
+    /*
+     * Traitement COMMAND + ACK.
+     */
     processMessages(
         communication,
+        messageTracker,
         lampRegistry,
         groupRegistry,
         sceneRegistry
     );
 
-
-    // ========================================================
-    // TEST 2
-    // PARTIAL
-    // ========================================================
+    /*
+     * Affichage du suivi.
+     */
+    printMessageTracker(
+        messageTracker
+    );
 
     Serial.println();
-
     Serial.println(
-        "===== TEST 2 : PARTIAL ====="
+        "===== ETAT FINAL ====="
     );
 
-
-    sendCommand(
-        1,
-        ActionType::SET_GROUP_POWER,
-        1
+    printLampRegistry(
+        lampRegistry
     );
-
-
-    processMessages(
-        communication,
-        lampRegistry,
-        groupRegistry,
-        sceneRegistry
-    );
-
-
-    // ========================================================
-    // TEST 3
-    // FAILED
-    // ========================================================
 
     Serial.println();
-
-    Serial.println(
-        "===== TEST 3 : FAILED ====="
-    );
-
-
-    sendCommand(
-        3,
-        ActionType::SET_LAMP_POWER,
-        1
-    );
-
-
-    processMessages(
-        communication,
-        lampRegistry,
-        groupRegistry,
-        sceneRegistry
-    );
-
-
-    // ========================================================
-    // ETATS FINAUX
-    // ========================================================
-
-    Serial.println();
-
-    Serial.println(
-        "===== ETATS FINAUX ====="
-    );
-
-
-    Lamp* lamp01 =
-        findLamp(
-            lampRegistry,
-            1
-        );
-
-
-    Lamp* lamp02 =
-        findLamp(
-            lampRegistry,
-            2
-        );
-
-
-    Lamp* lamp03 =
-        findLamp(
-            lampRegistry,
-            3
-        );
-
-
-    if (lamp01 != nullptr) {
-
-        printLampState(
-            *lamp01
-        );
-    }
-
-
-    if (lamp02 != nullptr) {
-
-        printLampState(
-            *lamp02
-        );
-    }
-
-
-    if (lamp03 != nullptr) {
-
-        printLampState(
-            *lamp03
-        );
-    }
-
-
-    Serial.println();
-
     Serial.println(
         "=============================="
     );
 
     Serial.println(
-        " SMART LIGHTING V3.4 READY"
+        " SMART LIGHTING V3.5 READY"
     );
 
     Serial.println(
@@ -467,16 +302,28 @@ void setup() {
     );
 }
 
-
-// ============================================================
-// LOOP
-// ============================================================
-
 void loop() {
 
+    /*
+     * Surveillance des lampes.
+     */
     updateDeviceStatus(
         lampRegistry
     );
+
+    /*
+     * Surveillance des messages
+     * en attente d'ACK.
+     */
+    updateMessageTimeouts(
+        messageTracker
+    );
+
+    /*
+     * Dans la vraie architecture,
+     * processMessages() sera appelé
+     * régulièrement ici.
+     */
 
     delay(1000);
 }
