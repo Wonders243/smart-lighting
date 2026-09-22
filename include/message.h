@@ -2,6 +2,11 @@
 
 #include <Arduino.h>
 
+
+// ============================================================
+// TYPE DE MESSAGE
+// ============================================================
+
 enum class MessageType {
     COMMAND,
     EVENT,
@@ -11,6 +16,10 @@ enum class MessageType {
 };
 
 
+// ============================================================
+// STATUT TRANSPORT
+// ============================================================
+
 enum class MessageStatus {
     PENDING,
     SENT,
@@ -19,13 +28,21 @@ enum class MessageStatus {
 };
 
 
-// Résultat réel d'une commande
+// ============================================================
+// STATUT D'EXECUTION
+// ============================================================
+
 enum class ExecutionStatus {
+    NOT_EXECUTED,
     EXECUTED,
     PARTIAL,
     FAILED
 };
 
+
+// ============================================================
+// MESSAGE
+// ============================================================
 
 struct Message {
 
@@ -46,7 +63,5 @@ struct Message {
 
     MessageStatus status;
 
-    // Résultat réel de l'exécution.
-    // Principalement utilisé par les ACK.
     ExecutionStatus executionStatus;
 };

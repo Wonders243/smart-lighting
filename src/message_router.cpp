@@ -29,9 +29,11 @@ static ExecutionStatus executeCommandMessage(
     SceneRegistry& scenes
 ) {
 
-    if (!isValidActionType(
-        message.commandType
-    )) {
+    if (
+        !isValidActionType(
+            message.commandType
+        )
+    ) {
 
         Serial.println(
             "Type de commande invalide"
@@ -163,15 +165,8 @@ void processMessages(
 
 
             // ------------------------------------------------
-            // ACK
+            // STATUT TRANSPORT
             // ------------------------------------------------
-
-            Message ack =
-                createAck(
-                    message,
-                    result
-                );
-
 
             if (
                 result ==
@@ -187,6 +182,17 @@ void processMessages(
                 message.status =
                     MessageStatus::FAILED;
             }
+
+
+            // ------------------------------------------------
+            // ACK
+            // ------------------------------------------------
+
+            Message ack =
+                createAck(
+                    message,
+                    result
+                );
 
 
             if (
@@ -230,7 +236,6 @@ void processMessages(
                 "Resultat : "
             );
 
-
             Serial.println(
                 executionStatusToString(
                     message.executionStatus
@@ -240,7 +245,7 @@ void processMessages(
 
 
         // ====================================================
-        // AUTRES
+        // AUTRES MESSAGES
         // ====================================================
 
         else {

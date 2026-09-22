@@ -5,6 +5,7 @@
 #include "group_manager.h"
 #include "scene_manager.h"
 
+
 void processMessages(
     CommunicationBus& communication,
     LampRegistry& lamps,

@@ -81,7 +81,7 @@ void sendCommand(
 
         MessageStatus::PENDING,
 
-        ExecutionStatus::FAILED
+        ExecutionStatus::NOT_EXECUTED
     };
 
 
@@ -110,7 +110,7 @@ void setup() {
     );
 
     Serial.println(
-        "      SMART LIGHTING V3.3"
+        "      SMART LIGHTING V3.4"
     );
 
     Serial.println(
@@ -317,12 +317,13 @@ void setup() {
 
     // ========================================================
     // TEST 1
+    // EXECUTED
     // ========================================================
 
     Serial.println();
 
     Serial.println(
-        "===== TEST 1 : LAMPE ====="
+        "===== TEST 1 : EXECUTED ====="
     );
 
 
@@ -343,12 +344,13 @@ void setup() {
 
     // ========================================================
     // TEST 2
+    // PARTIAL
     // ========================================================
 
     Serial.println();
 
     Serial.println(
-        "===== TEST 2 : GROUPE PARTIEL ====="
+        "===== TEST 2 : PARTIAL ====="
     );
 
 
@@ -369,19 +371,20 @@ void setup() {
 
     // ========================================================
     // TEST 3
+    // FAILED
     // ========================================================
 
     Serial.println();
 
     Serial.println(
-        "===== TEST 3 : SCENE PARTIELLE ====="
+        "===== TEST 3 : FAILED ====="
     );
 
 
     sendCommand(
-        1,
-        ActionType::EXECUTE_SCENE,
-        0
+        3,
+        ActionType::SET_LAMP_POWER,
+        1
     );
 
 
@@ -456,7 +459,7 @@ void setup() {
     );
 
     Serial.println(
-        " SMART LIGHTING V3.3 READY"
+        " SMART LIGHTING V3.4 READY"
     );
 
     Serial.println(

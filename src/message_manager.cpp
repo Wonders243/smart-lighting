@@ -58,6 +58,9 @@ const char* executionStatusToString(
 
     switch (status) {
 
+        case ExecutionStatus::NOT_EXECUTED:
+            return "NOT_EXECUTED";
+
         case ExecutionStatus::EXECUTED:
             return "EXECUTED";
 
@@ -89,7 +92,9 @@ void printMessage(
 
     Serial.print("Type : ");
     Serial.println(
-        messageTypeToString(message.type)
+        messageTypeToString(
+            message.type
+        )
     );
 
     Serial.print("Timestamp : ");
@@ -106,7 +111,9 @@ void printMessage(
 
     Serial.print("Status : ");
     Serial.println(
-        messageStatusToString(message.status)
+        messageStatusToString(
+            message.status
+        )
     );
 
     Serial.print("Execution : ");
