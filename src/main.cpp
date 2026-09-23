@@ -10,11 +10,14 @@
 #include "message_router.h"
 #include "message_id_generator.h"
 #include "device_manager.h"
-#include "action.h"
+#include "message_deduplicator.h"
 
-// ============================================================
-// REGISTRES SYSTEME
-// ============================================================
+
+/*
+ * ============================================================
+ * REGISTRES
+ * ============================================================
+ */
 
 LampRegistry lampRegistry;
 GroupRegistry groupRegistry;
@@ -24,13 +27,41 @@ EventBus eventBus;
 
 CommunicationBus communication;
 MessageTracker messageTracker;
+MessageDeduplicator messageDeduplicator;
 
 
-// ============================================================
-// ENVOI D'UNE COMMANDE
-// ============================================================
+/*
+ * ============================================================
+ * VARIABLES DE TEST
+ * ============================================================
+ */
 
-static void sendCommand(
+uint32_t timeoutMessageId = 0;
+uint32_t duplicateMessageId = 0;
+
+
+/*
+ * ============================================================
+ * MODE DE SIMULATION
+ * ============================================================
+ *
+ * true :
+ *   les messages sont volontairement perdus.
+ *
+ * false :
+ *   communication normale.
+ */
+
+bool simulateCommunicationLoss = false;
+
+
+/*
+ * ============================================================
+ * ENVOI D'UNE COMMANDE
+ * ============================================================
+ */
+
+static uint32_t sendCommand(
     uint32_t destinationId,
     ActionType actionType,
     int32_t value
@@ -58,134 +89,103 @@ static void sendCommand(
         ExecutionStatus::NOT_EXECUTED
     };
 
-    // Enregistrement dans le tracker
-    if (
-        !trackMessage(
-            messageTracker,
-            command
-        )
-    ) {
-        Serial.println(
-            "Impossible de suivre la commande"
-        );
-
-        return;
-    }
-
-    // Envoi dans le bus de communication
-    if (
-        !sendMessage(
-            communication,
-            command
-        )
-    ) {
-        Serial.println(
-            "Echec envoi commande"
-        );
-    }
-}
-
-
-// ============================================================
-// TEST TIMEOUT / RETRY
-// ============================================================
-
-static void createTimeoutTest() {
-
-    Serial.println();
-    Serial.println(
-        "================================"
-    );
-
-    Serial.println(
-        "     TEST TIMEOUT / RETRY"
-    );
-
-    Serial.println(
-        "================================"
-    );
-
-    Message command = {
-        generateMessageId(),
-
-        0,
-        999,
-
-        MessageType::COMMAND,
-
-        millis(),
-
-        static_cast<int32_t>(
-            ActionType::SET_LAMP_POWER
-        ),
-
-        1,
-
-        0,
-
-        MessageStatus::PENDING,
-
-        ExecutionStatus::NOT_EXECUTED
-    };
-
-    // Enregistrement dans le tracker
-    if (
-        !trackMessage(
-            messageTracker,
-            command
-        )
-    ) {
-        Serial.println(
-            "Impossible de suivre la commande"
-        );
-
-        return;
-    }
-
-    // Envoi de la commande
-    if (
-        !sendMessage(
-            communication,
-            command
-        )
-    ) {
-        Serial.println(
-            "Echec envoi commande"
-        );
-
-        return;
-    }
 
     /*
-     * On retire volontairement le message
-     * du bus sans l'exécuter.
-     *
-     * Cela simule un destinataire qui
-     * ne répond pas.
+     * Enregistrer le message dans le tracker
+     * avant l'envoi.
      */
 
-    Message ignored;
-
     if (
-        receiveMessage(
-            communication,
-            ignored
+        !trackMessage(
+            messageTracker,
+            command
         )
     ) {
+
         Serial.println(
-            "Message volontairement ignore."
+            "Erreur : impossible de suivre le message."
         );
+
+        return 0;
     }
 
-    Serial.println(
-        "Attente du timeout..."
+
+    /*
+     * Envoyer le message.
+     */
+
+    if (
+        !sendMessage(
+            communication,
+            command
+        )
+    ) {
+
+        Serial.println(
+            "Erreur : impossible d'envoyer le message."
+        );
+
+        return 0;
+    }
+
+
+    return command.id;
+}
+
+
+/*
+ * ============================================================
+ * SIMULATION DE PERTE DE COMMUNICATION
+ * ============================================================
+ */
+
+static void simulateLostMessages() {
+
+    Message lostMessage;
+
+
+    while (
+        receiveMessage(
+            communication,
+            lostMessage
+        )
+    ) {
+
+        Serial.print(
+            "Message volontairement perdu : "
+        );
+
+        Serial.println(
+            lostMessage.id
+        );
+    }
+}
+
+
+/*
+ * ============================================================
+ * COMMUNICATION NORMALE
+ * ============================================================
+ */
+
+static void processNormalCommunication() {
+
+    processMessages(
+        communication,
+        messageTracker,
+        messageDeduplicator,
+        lampRegistry,
+        groupRegistry,
+        sceneRegistry
     );
 }
 
 
-// ============================================================
-// SETUP
-// ============================================================
+/*
+ * ============================================================
+ * SETUP
+ * ============================================================
+ */
 
 void setup() {
 
@@ -193,24 +193,33 @@ void setup() {
 
     delay(1000);
 
+
+    /*
+     * ========================================================
+     * TITRE
+     * ========================================================
+     */
+
     Serial.println();
 
     Serial.println(
-        "=============================="
+        "================================"
     );
 
     Serial.println(
-        "      SMART LIGHTING V3.6"
+        "       SMART LIGHTING V3.7"
     );
 
     Serial.println(
-        "=============================="
+        "================================"
     );
 
 
-    // ========================================================
-    // INITIALISATION DES REGISTRES
-    // ========================================================
+    /*
+     * ========================================================
+     * INITIALISATION
+     * ========================================================
+     */
 
     initLampRegistry(
         lampRegistry
@@ -240,13 +249,18 @@ void setup() {
         messageTracker
     );
 
+    initMessageDeduplicator(
+        messageDeduplicator
+    );
 
-    // ========================================================
-    // CREATION DES LAMPES
-    // ========================================================
+
+    /*
+     * ========================================================
+     * LAMPES
+     * ========================================================
+     */
 
     Lamp lamp1 = {
-
         {
             1,
             "LAMP_01",
@@ -264,7 +278,6 @@ void setup() {
 
 
     Lamp lamp2 = {
-
         {
             2,
             "LAMP_02",
@@ -282,7 +295,6 @@ void setup() {
 
 
     Lamp lamp3 = {
-
         {
             3,
             "LAMP_03",
@@ -315,12 +327,13 @@ void setup() {
     );
 
 
-    // ========================================================
-    // CREATION DU GROUPE
-    // ========================================================
+    /*
+     * ========================================================
+     * GROUPE ENTREE
+     * ========================================================
+     */
 
     LampGroup entrance = {
-
         1,
         "ENTREE",
         {},
@@ -358,12 +371,13 @@ void setup() {
     );
 
 
-    // ========================================================
-    // CREATION DE LA SCENE
-    // ========================================================
+    /*
+     * ========================================================
+     * SCENE SOIR
+     * ========================================================
+     */
 
     Scene evening = {
-
         1,
         "SOIR",
         {},
@@ -378,7 +392,6 @@ void setup() {
 
 
     SceneAction powerAction = {
-
         1,
         CommandType::SET_GROUP_POWER,
         1
@@ -393,9 +406,21 @@ void setup() {
     );
 
 
-    // ========================================================
-    // TEST 1 : COMMAND + ACK
-    // ========================================================
+    /*
+     * ========================================================
+     * TEST 1
+     * ========================================================
+     *
+     * COMMAND
+     *    ↓
+     * EXECUTION
+     *    ↓
+     * ACK
+     *    ↓
+     * TRACKER
+     *    ↓
+     * DELIVERED
+     */
 
     Serial.println();
 
@@ -404,7 +429,7 @@ void setup() {
     );
 
     Serial.println(
-        "      TEST COMMAND + ACK"
+        " TEST 1 : COMMAND + ACK"
     );
 
     Serial.println(
@@ -412,108 +437,156 @@ void setup() {
     );
 
 
-    sendCommand(
-        1,
-        ActionType::SET_LAMP_POWER,
-        1
+    simulateCommunicationLoss = false;
+
+
+    uint32_t normalMessageId =
+        sendCommand(
+            1,
+            ActionType::SET_LAMP_POWER,
+            1
+        );
+
+
+    if (
+        normalMessageId != 0
+    ) {
+
+        /*
+         * COMMAND → EXECUTION → ACK
+         */
+
+        processNormalCommunication();
+
+
+        /*
+         * ACK → TRACKER
+         */
+
+        processNormalCommunication();
+    }
+
+
+    Serial.println();
+
+    Serial.println(
+        "===== TRACKER TEST 1 ====="
     );
 
-
-    /*
-     * Traitement du COMMAND.
-     *
-     * Le routeur va :
-     *
-     * COMMAND
-     *    ↓
-     * executeAction()
-     *    ↓
-     * ACK
-     */
-
-    processMessages(
-        communication,
-        messageTracker,
-        lampRegistry,
-        groupRegistry,
-        sceneRegistry
-    );
-
-
-    // ========================================================
-    // AFFICHAGE DU TRACKER APRES ACK
-    // ========================================================
 
     printMessageTracker(
         messageTracker
     );
 
 
-    // ========================================================
-    // TEST 2 : TIMEOUT / RETRY
-    // ========================================================
-
-    createTimeoutTest();
-
-
-    // ========================================================
-    // ETAT INITIAL
-    // ========================================================
+    /*
+     * ========================================================
+     * TEST 2
+     * ========================================================
+     *
+     * COMMAND
+     *    ↓
+     * PERDU
+     *    ↓
+     * TIMEOUT
+     *    ↓
+     * RETRY #1
+     *    ↓
+     * PERDU
+     *    ↓
+     * TIMEOUT
+     *    ↓
+     * RETRY #2
+     *    ↓
+     * PERDU
+     *    ↓
+     * TIMEOUT
+     *    ↓
+     * FAILED
+     */
 
     Serial.println();
 
     Serial.println(
-        "===== ETAT INITIAL ====="
-    );
-
-    printLampRegistry(
-        lampRegistry
-    );
-
-
-    Serial.println();
-
-    Serial.println(
-        "=============================="
+        "================================"
     );
 
     Serial.println(
-        " SMART LIGHTING V3.6 READY"
+        " TEST 2 : TIMEOUT + RETRIES"
     );
 
     Serial.println(
-        "=============================="
+        "================================"
     );
+
+
+    simulateCommunicationLoss = true;
+
+
+    timeoutMessageId =
+        sendCommand(
+            1,
+            ActionType::SET_LAMP_POWER,
+            0
+        );
+
+
+    Serial.print(
+        "Message timeout : "
+    );
+
+    Serial.println(
+        timeoutMessageId
+    );
+
+
+    /*
+     * Premier message perdu.
+     */
+
+    simulateLostMessages();
 }
 
 
-// ============================================================
-// LOOP
-// ============================================================
+/*
+ * ============================================================
+ * LOOP
+ * ============================================================
+ */
 
 void loop() {
 
     /*
-     * Mise à jour de l'état des appareils.
+     * ========================================================
+     * TEST 2
+     * ========================================================
      */
 
-    updateDeviceStatus(
-        lampRegistry
-    );
+    if (
+        simulateCommunicationLoss
+    ) {
+
+        /*
+         * Tous les messages sont volontairement perdus.
+         */
+
+        simulateLostMessages();
+
+    }
+    else {
+
+        /*
+         * Communication normale.
+         */
+
+        processNormalCommunication();
+    }
 
 
     /*
-     * Vérification des messages en attente.
-     *
-     * Si un message dépasse MESSAGE_TIMEOUT :
-     *
-     *     TIMEOUT
-     *        ↓
-     *     RETRY #1
-     *        ↓
-     *     RETRY #2
-     *        ↓
-     *     FAILED
+     * ========================================================
+     * TIMEOUT / RETRY
+     * ========================================================
      */
 
     updateMessageTimeouts(
@@ -523,49 +596,242 @@ void loop() {
 
 
     /*
-     * Traitement des messages présents
-     * dans le bus.
-     *
-     * IMPORTANT :
-     * Le retry est remis dans le bus par
-     * updateMessageTimeouts().
-     *
-     * Dans ce test, le destinataire 999
-     * n'existe pas et le message sera donc
-     * ignoré pour permettre de tester les
-     * timeouts.
+     * ========================================================
+     * VERIFICATION FIN TEST 2
+     * ========================================================
      */
 
-    processMessages(
-        communication,
-        messageTracker,
-        lampRegistry,
-        groupRegistry,
-        sceneRegistry
-    );
+    PendingMessage* timeoutMessage =
+        findPendingMessage(
+            messageTracker,
+            timeoutMessageId
+        );
 
-
-    /*
-     * Affichage périodique du tracker
-     * pour suivre l'évolution du retry.
-     */
-
-    static uint32_t lastTrackerPrint = 0;
 
     if (
-        millis() - lastTrackerPrint >= 1000
+        timeoutMessage != nullptr &&
+        timeoutMessage->completed &&
+        simulateCommunicationLoss
     ) {
-        lastTrackerPrint = millis();
 
         Serial.println();
 
         Serial.println(
-            "----- TRACKER -----"
+            "================================"
         );
 
-        printMessageTracker(
-            messageTracker
+        Serial.println(
+            " TEST 2 TERMINE"
         );
+
+        Serial.println(
+            "================================"
+        );
+
+
+        printPendingMessage(
+            *timeoutMessage
+        );
+
+
+        /*
+         * Arrêt de la perte totale.
+         */
+
+        simulateCommunicationLoss = false;
+
+
+        /*
+         * Petite pause.
+         */
+
+        delay(1000);
+
+
+        /*
+         * ====================================================
+         * TEST 3
+         * ====================================================
+         *
+         * COMMAND
+         *    ↓
+         * EXECUTION
+         *    ↓
+         * ACK PERDU
+         *    ↓
+         * TIMEOUT
+         *    ↓
+         * RETRY
+         *    ↓
+         * DOUBLON
+         *    ↓
+         * PAS DE DEUXIEME EXECUTION
+         *    ↓
+         * NOUVEL ACK
+         *    ↓
+         * DELIVERED
+         */
+
+        Serial.println();
+
+        Serial.println(
+            "================================"
+        );
+
+        Serial.println(
+            " TEST 3 : ACK PERDU + DOUBLON"
+        );
+
+        Serial.println(
+            "================================"
+        );
+
+
+        /*
+         * Envoi de la commande.
+         */
+
+        duplicateMessageId =
+            sendCommand(
+                1,
+                ActionType::SET_LAMP_POWER,
+                1
+            );
+
+
+        /*
+         * ----------------------------------------------------
+         * COMMAND
+         * ----------------------------------------------------
+         *
+         * Le COMMAND est exécuté.
+         *
+         * L'ACK est volontairement perdu.
+         */
+
+        processMessages(
+            communication,
+            messageTracker,
+            messageDeduplicator,
+            lampRegistry,
+            groupRegistry,
+            sceneRegistry,
+            true
+        );
+
+
+        Serial.println();
+
+        Serial.println(
+            "ACK perdu. Attente du timeout..."
+        );
+    }
+
+
+    /*
+     * ========================================================
+     * TEST 3 : RETRY + DOUBLON
+     * ========================================================
+     */
+
+    PendingMessage* duplicateMessage =
+        findPendingMessage(
+            messageTracker,
+            duplicateMessageId
+        );
+
+
+    if (
+        duplicateMessage != nullptr &&
+        !duplicateMessage->completed &&
+        duplicateMessage->retryCount > 0
+    ) {
+
+        /*
+         * ----------------------------------------------------
+         * RETRY
+         * ----------------------------------------------------
+         *
+         * Le même message revient avec le même ID.
+         */
+
+        processNormalCommunication();
+
+
+        /*
+         * Le routeur doit :
+         *
+         *   reconnaître le doublon
+         *        ↓
+         *   ne PAS exécuter la commande
+         *        ↓
+         *   renvoyer un ACK
+         *
+         * processMessages() traite ensuite cet ACK.
+         */
+
+
+        /*
+         * ----------------------------------------------------
+         * RESULTAT TEST 3
+         * ----------------------------------------------------
+         */
+
+        if (
+            duplicateMessage->completed
+        ) {
+
+            Serial.println();
+
+            Serial.println(
+                "================================"
+            );
+
+            Serial.println(
+                " RESULTAT TEST 3"
+            );
+
+            Serial.println(
+                "================================"
+            );
+
+
+            printPendingMessage(
+                *duplicateMessage
+            );
+
+
+            /*
+             * Etat du déduplicateur.
+             */
+
+            printMessageDeduplicator(
+                messageDeduplicator
+            );
+
+
+            /*
+             * Etat final des lampes.
+             */
+
+            Serial.println();
+
+            Serial.println(
+                "===== ETAT FINAL LAMPES ====="
+            );
+
+
+            printLampRegistry(
+                lampRegistry
+            );
+
+
+            /*
+             * Empêcher le test de recommencer.
+             */
+
+            duplicateMessageId = 0;
+        }
     }
 
 
