@@ -7,8 +7,9 @@
 #include "message_deduplicator.h"
 #include "message_tracker.h"
 
+
 void processMessages(
-    CommunicationBus& communication,
+    Communication& communication,
     MessageTracker& tracker,
     MessageDeduplicator& deduplicator,
     LampRegistry& lamps,

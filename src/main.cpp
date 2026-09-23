@@ -20,44 +20,45 @@
  */
 
 LampRegistry lampRegistry;
+
 GroupRegistry groupRegistry;
+
 SceneRegistry sceneRegistry;
+
 AutomationRegistry automationRegistry;
+
 EventBus eventBus;
 
-CommunicationBus communication;
+
+/*
+ * ============================================================
+ * COMMUNICATION
+ * ============================================================
+ */
+
+Communication communication;
+
 MessageTracker messageTracker;
+
 MessageDeduplicator messageDeduplicator;
 
 
 /*
  * ============================================================
- * VARIABLES DE TEST
+ * TESTS
  * ============================================================
  */
 
 uint32_t timeoutMessageId = 0;
+
 uint32_t duplicateMessageId = 0;
-
-
-/*
- * ============================================================
- * MODE DE SIMULATION
- * ============================================================
- *
- * true :
- *   les messages sont volontairement perdus.
- *
- * false :
- *   communication normale.
- */
 
 bool simulateCommunicationLoss = false;
 
 
 /*
  * ============================================================
- * ENVOI D'UNE COMMANDE
+ * SEND COMMAND
  * ============================================================
  */
 
@@ -67,9 +68,11 @@ static uint32_t sendCommand(
     int32_t value
 ) {
     Message command = {
+
         generateMessageId(),
 
-        0,
+        communication.localDeviceId,
+
         destinationId,
 
         MessageType::COMMAND,
@@ -90,11 +93,6 @@ static uint32_t sendCommand(
     };
 
 
-    /*
-     * Enregistrer le message dans le tracker
-     * avant l'envoi.
-     */
-
     if (
         !trackMessage(
             messageTracker,
@@ -109,10 +107,6 @@ static uint32_t sendCommand(
         return 0;
     }
 
-
-    /*
-     * Envoyer le message.
-     */
 
     if (
         !sendMessage(
@@ -135,7 +129,7 @@ static uint32_t sendCommand(
 
 /*
  * ============================================================
- * SIMULATION DE PERTE DE COMMUNICATION
+ * SIMULATION PERTE
  * ============================================================
  */
 
@@ -155,6 +149,7 @@ static void simulateLostMessages() {
             "Message volontairement perdu : "
         );
 
+
         Serial.println(
             lostMessage.id
         );
@@ -164,18 +159,24 @@ static void simulateLostMessages() {
 
 /*
  * ============================================================
- * COMMUNICATION NORMALE
+ * PROCESS NORMAL
  * ============================================================
  */
 
 static void processNormalCommunication() {
 
     processMessages(
+
         communication,
+
         messageTracker,
+
         messageDeduplicator,
+
         lampRegistry,
+
         groupRegistry,
+
         sceneRegistry
     );
 }
@@ -189,16 +190,15 @@ static void processNormalCommunication() {
 
 void setup() {
 
-    Serial.begin(115200);
+    Serial.begin(
+        115200
+    );
 
-    delay(1000);
 
+    delay(
+        1000
+    );
 
-    /*
-     * ========================================================
-     * TITRE
-     * ========================================================
-     */
 
     Serial.println();
 
@@ -207,7 +207,7 @@ void setup() {
     );
 
     Serial.println(
-        "       SMART LIGHTING V3.7"
+        "       SMART LIGHTING V3.8"
     );
 
     Serial.println(
@@ -225,32 +225,56 @@ void setup() {
         lampRegistry
     );
 
+
     initGroupRegistry(
         groupRegistry
     );
+
 
     initSceneRegistry(
         sceneRegistry
     );
 
+
     initAutomationRegistry(
         automationRegistry
     );
+
 
     initEventBus(
         eventBus
     );
 
+
+    /*
+     * IMPORTANT :
+     *
+     * Le reste du système ne connaît désormais
+     * que Communication.
+     */
+
     initCommunication(
-        communication
+
+        communication,
+
+        CommunicationTransport::SIMULATION,
+
+        0
     );
+
 
     initMessageTracker(
         messageTracker
     );
 
+
     initMessageDeduplicator(
         messageDeduplicator
+    );
+
+
+    printCommunicationStatus(
+        communication
     );
 
 
@@ -261,6 +285,7 @@ void setup() {
      */
 
     Lamp lamp1 = {
+
         {
             1,
             "LAMP_01",
@@ -278,6 +303,7 @@ void setup() {
 
 
     Lamp lamp2 = {
+
         {
             2,
             "LAMP_02",
@@ -295,6 +321,7 @@ void setup() {
 
 
     Lamp lamp3 = {
+
         {
             3,
             "LAMP_03",
@@ -316,10 +343,12 @@ void setup() {
         lamp1
     );
 
+
     addLamp(
         lampRegistry,
         lamp2
     );
+
 
     addLamp(
         lampRegistry,
@@ -329,14 +358,18 @@ void setup() {
 
     /*
      * ========================================================
-     * GROUPE ENTREE
+     * GROUPE
      * ========================================================
      */
 
     LampGroup entrance = {
+
         1,
+
         "ENTREE",
+
         {},
+
         0
     };
 
@@ -373,14 +406,18 @@ void setup() {
 
     /*
      * ========================================================
-     * SCENE SOIR
+     * SCENE
      * ========================================================
      */
 
     Scene evening = {
+
         1,
+
         "SOIR",
+
         {},
+
         0
     };
 
@@ -392,16 +429,23 @@ void setup() {
 
 
     SceneAction powerAction = {
+
         1,
+
         CommandType::SET_GROUP_POWER,
+
         1
     };
 
 
     addActionToScene(
+
         sceneRegistry,
+
         groupRegistry,
+
         1,
+
         powerAction
     );
 
@@ -410,16 +454,6 @@ void setup() {
      * ========================================================
      * TEST 1
      * ========================================================
-     *
-     * COMMAND
-     *    ↓
-     * EXECUTION
-     *    ↓
-     * ACK
-     *    ↓
-     * TRACKER
-     *    ↓
-     * DELIVERED
      */
 
     Serial.println();
@@ -437,13 +471,17 @@ void setup() {
     );
 
 
-    simulateCommunicationLoss = false;
+    simulateCommunicationLoss =
+        false;
 
 
     uint32_t normalMessageId =
         sendCommand(
+
             1,
+
             ActionType::SET_LAMP_POWER,
+
             1
         );
 
@@ -452,16 +490,7 @@ void setup() {
         normalMessageId != 0
     ) {
 
-        /*
-         * COMMAND → EXECUTION → ACK
-         */
-
         processNormalCommunication();
-
-
-        /*
-         * ACK → TRACKER
-         */
 
         processNormalCommunication();
     }
@@ -483,26 +512,6 @@ void setup() {
      * ========================================================
      * TEST 2
      * ========================================================
-     *
-     * COMMAND
-     *    ↓
-     * PERDU
-     *    ↓
-     * TIMEOUT
-     *    ↓
-     * RETRY #1
-     *    ↓
-     * PERDU
-     *    ↓
-     * TIMEOUT
-     *    ↓
-     * RETRY #2
-     *    ↓
-     * PERDU
-     *    ↓
-     * TIMEOUT
-     *    ↓
-     * FAILED
      */
 
     Serial.println();
@@ -520,13 +529,17 @@ void setup() {
     );
 
 
-    simulateCommunicationLoss = true;
+    simulateCommunicationLoss =
+        true;
 
 
     timeoutMessageId =
         sendCommand(
+
             1,
+
             ActionType::SET_LAMP_POWER,
+
             0
         );
 
@@ -535,14 +548,11 @@ void setup() {
         "Message timeout : "
     );
 
+
     Serial.println(
         timeoutMessageId
     );
 
-
-    /*
-     * Premier message perdu.
-     */
 
     simulateLostMessages();
 }
@@ -558,7 +568,7 @@ void loop() {
 
     /*
      * ========================================================
-     * TEST 2
+     * COMMUNICATION
      * ========================================================
      */
 
@@ -566,18 +576,10 @@ void loop() {
         simulateCommunicationLoss
     ) {
 
-        /*
-         * Tous les messages sont volontairement perdus.
-         */
-
         simulateLostMessages();
 
     }
     else {
-
-        /*
-         * Communication normale.
-         */
 
         processNormalCommunication();
     }
@@ -590,28 +592,36 @@ void loop() {
      */
 
     updateMessageTimeouts(
+
         messageTracker,
+
         communication
     );
 
 
     /*
      * ========================================================
-     * VERIFICATION FIN TEST 2
+     * FIN TEST 2
      * ========================================================
      */
 
     PendingMessage* timeoutMessage =
         findPendingMessage(
+
             messageTracker,
+
             timeoutMessageId
         );
 
 
     if (
+
         timeoutMessage != nullptr &&
+
         timeoutMessage->completed &&
+
         simulateCommunicationLoss
+
     ) {
 
         Serial.println();
@@ -634,42 +644,19 @@ void loop() {
         );
 
 
-        /*
-         * Arrêt de la perte totale.
-         */
-
-        simulateCommunicationLoss = false;
+        simulateCommunicationLoss =
+            false;
 
 
-        /*
-         * Petite pause.
-         */
-
-        delay(1000);
+        delay(
+            1000
+        );
 
 
         /*
          * ====================================================
          * TEST 3
          * ====================================================
-         *
-         * COMMAND
-         *    ↓
-         * EXECUTION
-         *    ↓
-         * ACK PERDU
-         *    ↓
-         * TIMEOUT
-         *    ↓
-         * RETRY
-         *    ↓
-         * DOUBLON
-         *    ↓
-         * PAS DE DEUXIEME EXECUTION
-         *    ↓
-         * NOUVEL ACK
-         *    ↓
-         * DELIVERED
          */
 
         Serial.println();
@@ -687,35 +674,31 @@ void loop() {
         );
 
 
-        /*
-         * Envoi de la commande.
-         */
-
         duplicateMessageId =
             sendCommand(
+
                 1,
+
                 ActionType::SET_LAMP_POWER,
+
                 1
             );
 
 
-        /*
-         * ----------------------------------------------------
-         * COMMAND
-         * ----------------------------------------------------
-         *
-         * Le COMMAND est exécuté.
-         *
-         * L'ACK est volontairement perdu.
-         */
-
         processMessages(
+
             communication,
+
             messageTracker,
+
             messageDeduplicator,
+
             lampRegistry,
+
             groupRegistry,
+
             sceneRegistry,
+
             true
         );
 
@@ -730,52 +713,31 @@ void loop() {
 
     /*
      * ========================================================
-     * TEST 3 : RETRY + DOUBLON
+     * TEST 3 RESULT
      * ========================================================
      */
 
     PendingMessage* duplicateMessage =
         findPendingMessage(
+
             messageTracker,
+
             duplicateMessageId
         );
 
 
     if (
-        duplicateMessage != nullptr &&
-        !duplicateMessage->completed &&
-        duplicateMessage->retryCount > 0
-    ) {
 
-        /*
-         * ----------------------------------------------------
-         * RETRY
-         * ----------------------------------------------------
-         *
-         * Le même message revient avec le même ID.
-         */
+        duplicateMessage != nullptr &&
+
+        !duplicateMessage->completed &&
+
+        duplicateMessage->retryCount > 0
+
+    ) {
 
         processNormalCommunication();
 
-
-        /*
-         * Le routeur doit :
-         *
-         *   reconnaître le doublon
-         *        ↓
-         *   ne PAS exécuter la commande
-         *        ↓
-         *   renvoyer un ACK
-         *
-         * processMessages() traite ensuite cet ACK.
-         */
-
-
-        /*
-         * ----------------------------------------------------
-         * RESULTAT TEST 3
-         * ----------------------------------------------------
-         */
 
         if (
             duplicateMessage->completed
@@ -801,18 +763,10 @@ void loop() {
             );
 
 
-            /*
-             * Etat du déduplicateur.
-             */
-
             printMessageDeduplicator(
                 messageDeduplicator
             );
 
-
-            /*
-             * Etat final des lampes.
-             */
 
             Serial.println();
 
@@ -826,14 +780,13 @@ void loop() {
             );
 
 
-            /*
-             * Empêcher le test de recommencer.
-             */
-
-            duplicateMessageId = 0;
+            duplicateMessageId =
+                0;
         }
     }
 
 
-    delay(100);
+    delay(
+        100
+    );
 }

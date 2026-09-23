@@ -23,8 +23,14 @@ static bool isValidCommandType(
 }
 
 
+/*
+ * ============================================================
+ * ACK
+ * ============================================================
+ */
+
 static void sendAck(
-    CommunicationBus& communication,
+    Communication& communication,
     const Message& command,
     ExecutionStatus executionStatus,
     bool dropAck
@@ -55,14 +61,9 @@ static void sendAck(
     };
 
 
-    /*
-     * Simulation de perte de l'ACK.
-     *
-     * L'ACK est généré logiquement mais n'est pas
-     * placé dans le bus de communication.
-     */
-
-    if (dropAck) {
+    if (
+        dropAck
+    ) {
 
         Serial.println();
 
@@ -73,6 +74,7 @@ static void sendAck(
         Serial.println(
             ack.id
         );
+
 
         Serial.print(
             "ACK correspondant au message : "
@@ -86,14 +88,11 @@ static void sendAck(
     }
 
 
-    /*
-     * Communication normale.
-     */
-
     sendMessage(
         communication,
         ack
     );
+
 
     Serial.println(
         "ACK genere"
@@ -101,8 +100,14 @@ static void sendAck(
 }
 
 
+/*
+ * ============================================================
+ * MESSAGE PROCESSOR
+ * ============================================================
+ */
+
 void processMessages(
-    CommunicationBus& communication,
+    Communication& communication,
     MessageTracker& tracker,
     MessageDeduplicator& deduplicator,
     LampRegistry& lamps,
@@ -126,6 +131,7 @@ void processMessages(
             ">>> MESSAGE RECU"
         );
 
+
         printMessage(
             message
         );
@@ -146,10 +152,12 @@ void processMessages(
                 ">>> ACK RECU"
             );
 
+
             processAck(
                 tracker,
                 message
             );
+
 
             continue;
         }
@@ -157,7 +165,7 @@ void processMessages(
 
         /*
          * ====================================================
-         * COMMAND
+         * SEULS LES COMMANDES SONT EXECUTEES
          * ====================================================
          */
 
@@ -185,6 +193,7 @@ void processMessages(
                 "CommandType invalide"
             );
 
+
             sendAck(
                 communication,
                 message,
@@ -192,11 +201,9 @@ void processMessages(
                 dropNextAck
             );
 
-            /*
-             * Le flag ne doit être utilisé qu'une fois.
-             */
 
             dropNextAck = false;
+
 
             continue;
         }
@@ -204,7 +211,7 @@ void processMessages(
 
         /*
          * ====================================================
-         * DETECTION DE DOUBLON
+         * DEDUPLICATION
          * ====================================================
          */
 
@@ -225,6 +232,7 @@ void processMessages(
                 ">>> DOUBLON DETECTE"
             );
 
+
             Serial.print(
                 "Message deja execute : "
             );
@@ -233,9 +241,11 @@ void processMessages(
                 message.id
             );
 
+
             Serial.print(
                 "Execution precedente : "
             );
+
 
             Serial.println(
                 executionStatusToString(
@@ -245,12 +255,11 @@ void processMessages(
 
 
             /*
-             * IMPORTANT :
+             * On ne réexécute PAS
+             * la commande.
              *
-             * On NE réexécute PAS la commande.
-             *
-             * On renvoie simplement le résultat
-             * déjà obtenu.
+             * On renvoie simplement
+             * le résultat précédent.
              */
 
             sendAck(
@@ -259,6 +268,7 @@ void processMessages(
                 processed->executionStatus,
                 false
             );
+
 
             continue;
         }
@@ -271,6 +281,7 @@ void processMessages(
          */
 
         Action action = {
+
             static_cast<ActionType>(
                 message.commandType
             ),
@@ -281,16 +292,16 @@ void processMessages(
         };
 
 
-        /*
-         * ====================================================
-         * EXECUTION
-         * ====================================================
-         */
-
         Serial.println(
             ">>> EXECUTION COMMANDE"
         );
 
+
+        /*
+         * ====================================================
+         * EXECUTION METIER
+         * ====================================================
+         */
 
         ExecutionStatus result =
             executeAction(
@@ -305,6 +316,7 @@ void processMessages(
             "Resultat execution : "
         );
 
+
         Serial.println(
             executionStatusToString(
                 result
@@ -314,7 +326,7 @@ void processMessages(
 
         /*
          * ====================================================
-         * MEMORISATION
+         * DEDUPLICATION
          * ====================================================
          */
 
@@ -338,10 +350,6 @@ void processMessages(
             dropNextAck
         );
 
-
-        /*
-         * Le flag ne doit être consommé qu'une fois.
-         */
 
         dropNextAck = false;
     }
