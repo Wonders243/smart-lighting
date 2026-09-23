@@ -207,7 +207,7 @@ void setup() {
     );
 
     Serial.println(
-        "       SMART LIGHTING V3.8"
+        "       SMART LIGHTING V3.9"
     );
 
     Serial.println(
@@ -254,11 +254,8 @@ void setup() {
      */
 
     initCommunication(
-
         communication,
-
-        CommunicationTransport::SIMULATION,
-
+        CommunicationTransportType::SIMULATION,
         0
     );
 

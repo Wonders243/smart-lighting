@@ -2,100 +2,37 @@
 
 #include "communication.h"
 
-
-/*
- * ============================================================
- * SIMULATION TRANSPORT
- * ============================================================
- *
- * Pour V3.8, le transport de simulation utilise une
- * file circulaire.
- *
- * Plus tard :
- *
- * CommunicationTransport::ZIGBEE
- *
- * utilisera la stack Zigbee à la place de cette file.
- */
-
-
-/*
- * ------------------------------------------------------------
- * Queue interne
- * ------------------------------------------------------------
- */
-
-static bool queueSend(
-    CommunicationQueue& queue,
-    Message message
-) {
-    if (
-        queue.count >=
-        MAX_MESSAGES
-    ) {
-        return false;
-    }
-
-
-    queue.messages[
-        queue.tail
-    ] = message;
-
-
-    queue.tail =
-        (
-            queue.tail + 1
-        ) % MAX_MESSAGES;
-
-
-    queue.count++;
-
-    return true;
-}
-
-
-static bool queueReceive(
-    CommunicationQueue& queue,
-    Message& message
-) {
-    if (
-        queue.count == 0
-    ) {
-        return false;
-    }
-
-
-    message =
-        queue.messages[
-            queue.head
-        ];
-
-
-    queue.head =
-        (
-            queue.head + 1
-        ) % MAX_MESSAGES;
-
-
-    queue.count--;
-
-    return true;
-}
+#include "simulation_transport.h"
+#include "zigbee_transport.h"
 
 
 /*
  * ============================================================
- * INITIALISATION
+ * TRANSPORTS
+ * ============================================================
+ *
+ * Ils vivent pendant toute la durée du programme.
+ */
+
+static SimulationTransport simulationTransport;
+
+static ZigbeeTransport zigbeeTransport;
+
+
+/*
+ * ============================================================
+ * INIT
  * ============================================================
  */
 
-void initCommunication(
+bool initCommunication(
     Communication& communication,
-    CommunicationTransport transport,
+    CommunicationTransportType type,
     uint32_t localDeviceId
 ) {
-    communication.transport =
-        transport;
+
+    communication.type =
+        type;
 
     communication.state =
         CommunicationState::INITIALIZING;
@@ -103,64 +40,96 @@ void initCommunication(
     communication.localDeviceId =
         localDeviceId;
 
-
-    communication.queue.head = 0;
-    communication.queue.tail = 0;
-    communication.queue.count = 0;
+    communication.transport =
+        nullptr;
 
 
     /*
-     * V3.8 :
-     *
-     * seule la simulation est implémentée.
+     * --------------------------------------------------------
+     * SIMULATION
+     * --------------------------------------------------------
      */
 
     if (
-        transport ==
-        CommunicationTransport::SIMULATION
+        type ==
+        CommunicationTransportType::SIMULATION
     ) {
 
-        communication.state =
-            CommunicationState::READY;
+        communication.transport =
+            &simulationTransport;
 
-        Serial.println(
-            "Communication : SIMULATION"
-        );
 
-        Serial.println(
-            "Communication : READY"
-        );
+        if (
+            simulationTransport.begin()
+        ) {
 
-        return;
+            communication.state =
+                CommunicationState::READY;
+
+
+            Serial.println(
+                "Communication : SIMULATION"
+            );
+
+            Serial.println(
+                "Communication : READY"
+            );
+
+
+            return true;
+        }
     }
 
 
     /*
-     * Zigbee n'est pas encore implémenté.
+     * --------------------------------------------------------
+     * ZIGBEE
+     * --------------------------------------------------------
      */
 
     if (
-        transport ==
-        CommunicationTransport::ZIGBEE
+        type ==
+        CommunicationTransportType::ZIGBEE
     ) {
+
+        communication.transport =
+            &zigbeeTransport;
+
+
+        if (
+            zigbeeTransport.begin()
+        ) {
+
+            communication.state =
+                CommunicationState::READY;
+
+
+            Serial.println(
+                "Communication : ZIGBEE"
+            );
+
+            Serial.println(
+                "Communication : READY"
+            );
+
+
+            return true;
+        }
+
 
         communication.state =
             CommunicationState::ERROR;
 
-        Serial.println(
-            "Communication : ZIGBEE"
-        );
 
-        Serial.println(
-            "Zigbee non implemente dans V3.8"
-        );
-
-        return;
+        return false;
     }
 
 
     communication.state =
         CommunicationState::ERROR;
+
+
+    return false;
 }
 
 
@@ -174,93 +143,44 @@ bool sendMessage(
     Communication& communication,
     Message message
 ) {
-    if (
-        communication.state !=
-        CommunicationState::READY
-    ) {
-        Serial.println(
-            "Communication non disponible"
-        );
 
+    if (
+        communication.transport ==
+        nullptr
+    ) {
+        return false;
+    }
+
+
+    if (
+        !communicationReady(
+            communication
+        )
+    ) {
         return false;
     }
 
 
     /*
-     * Le timestamp est ajouté automatiquement
-     * si l'appelant ne l'a pas défini.
+     * Timestamp automatique.
      */
 
     if (
         message.timestamp == 0
     ) {
+
         message.timestamp =
             millis();
     }
 
 
-    /*
-     * Etat initial.
-     */
-
     message.status =
         MessageStatus::SENT;
 
 
-    /*
-     * Transport de simulation.
-     */
-
-    if (
-        communication.transport ==
-        CommunicationTransport::SIMULATION
-    ) {
-
-        if (
-            !queueSend(
-                communication.queue,
-                message
-            )
-        ) {
-
-            Serial.println(
-                "Communication : queue pleine"
-            );
-
-            return false;
-        }
-
-
-        Serial.print(
-            "Message envoye : "
-        );
-
-        Serial.println(
-            message.id
-        );
-
-        return true;
-    }
-
-
-    /*
-     * Zigbee futur.
-     */
-
-    if (
-        communication.transport ==
-        CommunicationTransport::ZIGBEE
-    ) {
-
-        Serial.println(
-            "Erreur : transport Zigbee non disponible"
-        );
-
-        return false;
-    }
-
-
-    return false;
+    return communication.transport->send(
+        message
+    );
 }
 
 
@@ -274,78 +194,53 @@ bool receiveMessage(
     Communication& communication,
     Message& message
 ) {
+
     if (
-        communication.state !=
-        CommunicationState::READY
+        communication.transport ==
+        nullptr
     ) {
         return false;
     }
 
 
-    /*
-     * Simulation.
-     */
-
     if (
-        communication.transport ==
-        CommunicationTransport::SIMULATION
-    ) {
-
-        return queueReceive(
-            communication.queue,
-            message
-        );
-    }
-
-
-    /*
-     * Zigbee futur.
-     */
-
-    if (
-        communication.transport ==
-        CommunicationTransport::ZIGBEE
+        !communicationReady(
+            communication
+        )
     ) {
         return false;
     }
 
 
-    return false;
+    return communication.transport->receive(
+        message
+    );
 }
 
 
 /*
  * ============================================================
- * STATUS
+ * READY
  * ============================================================
  */
-
-bool communicationEmpty(
-    const Communication& communication
-) {
-    return (
-        communication.queue.count ==
-        0
-    );
-}
-
-
-bool communicationFull(
-    const Communication& communication
-) {
-    return (
-        communication.queue.count >=
-        MAX_MESSAGES
-    );
-}
-
 
 bool communicationReady(
     const Communication& communication
 ) {
+
     return (
+
         communication.state ==
         CommunicationState::READY
+
+        &&
+
+        communication.transport !=
+        nullptr
+
+        &&
+
+        communication.transport->isReady()
     );
 }
 
@@ -359,6 +254,7 @@ bool communicationReady(
 void printCommunicationStatus(
     const Communication& communication
 ) {
+
     Serial.println();
 
     Serial.println(
@@ -371,26 +267,21 @@ void printCommunicationStatus(
     );
 
 
-    switch (
-        communication.transport
+    if (
+        communication.transport !=
+        nullptr
     ) {
 
-        case CommunicationTransport::SIMULATION:
+        Serial.println(
+            communication.transport->name()
+        );
 
-            Serial.println(
-                "SIMULATION"
-            );
+    }
+    else {
 
-            break;
-
-
-        case CommunicationTransport::ZIGBEE:
-
-            Serial.println(
-                "ZIGBEE"
-            );
-
-            break;
+        Serial.println(
+            "NONE"
+        );
     }
 
 
@@ -435,17 +326,9 @@ void printCommunicationStatus(
         "Device local : "
     );
 
+
     Serial.println(
         communication.localDeviceId
-    );
-
-
-    Serial.print(
-        "Messages en attente : "
-    );
-
-    Serial.println(
-        communication.queue.count
     );
 
 
