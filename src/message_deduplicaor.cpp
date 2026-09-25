@@ -15,6 +15,7 @@ void initMessageDeduplicator(
         i++
     ) {
         deduplicator.messages[i].messageId = 0;
+        deduplicator.messages[i].sourceId = 0;
 
         deduplicator.messages[i].executionStatus =
             ExecutionStatus::NOT_EXECUTED;
@@ -27,6 +28,7 @@ void initMessageDeduplicator(
 
 ProcessedMessage* findProcessedMessage(
     MessageDeduplicator& deduplicator,
+    uint32_t sourceId,
     uint32_t messageId
 ) {
     for (
@@ -39,6 +41,7 @@ ProcessedMessage* findProcessedMessage(
 
         if (
             message.valid &&
+            message.sourceId == sourceId &&
             message.messageId == messageId
         ) {
             return &message;
@@ -50,16 +53,19 @@ ProcessedMessage* findProcessedMessage(
 
 bool isMessageProcessed(
     MessageDeduplicator& deduplicator,
+    uint32_t sourceId,
     uint32_t messageId
 ) {
     return findProcessedMessage(
         deduplicator,
+        sourceId,
         messageId
     ) != nullptr;
 }
 
 bool registerProcessedMessage(
     MessageDeduplicator& deduplicator,
+    uint32_t sourceId,
     uint32_t messageId,
     ExecutionStatus executionStatus
 ) {
@@ -69,6 +75,7 @@ bool registerProcessedMessage(
     ProcessedMessage* existing =
         findProcessedMessage(
             deduplicator,
+            sourceId,
             messageId
         );
 
@@ -97,6 +104,7 @@ bool registerProcessedMessage(
                 deduplicator.count
             ];
 
+        entry.sourceId = sourceId;
         entry.messageId = messageId;
 
         entry.executionStatus =
@@ -123,6 +131,7 @@ bool registerProcessedMessage(
             deduplicator.nextIndex
         ];
 
+    entry.sourceId = sourceId;
     entry.messageId = messageId;
 
     entry.executionStatus =
@@ -175,12 +184,15 @@ void printMessageDeduplicator(
         }
 
         Serial.print(
-            "ID : "
+            "Source : "
         );
 
         Serial.print(
-            message.messageId
+            message.sourceId
         );
+
+        Serial.print(" | ID : ");
+        Serial.print(message.messageId);
 
         Serial.print(
             " | Execution : "

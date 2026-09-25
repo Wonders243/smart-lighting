@@ -2,15 +2,19 @@
 
 #include "device_registry.h"
 
+struct EventBus;
+
 
 constexpr uint32_t DEVICE_TIMEOUT = 10000;
 
 
 void updateDeviceSeen(
-    Device& device
+    Device& device,
+    EventBus* eventBus = nullptr
 );
 
 
 void updateDeviceStatus(
-    LampRegistry& registry
+    LampRegistry& registry,
+    EventBus* eventBus = nullptr
 );

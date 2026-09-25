@@ -317,6 +317,10 @@ void processAutomations(
 
             switch (result) {
 
+                case ExecutionStatus::NOT_EXECUTED:
+                    actionsFailed++;
+                    break;
+
                 case ExecutionStatus::EXECUTED:
                     actionsExecuted++;
                     break;

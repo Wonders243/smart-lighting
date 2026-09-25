@@ -7,6 +7,8 @@
 #include "message_deduplicator.h"
 #include "message_tracker.h"
 
+struct EventBus;
+
 
 void processMessages(
     Communication& communication,
@@ -15,5 +17,6 @@ void processMessages(
     LampRegistry& lamps,
     GroupRegistry& groups,
     SceneRegistry& scenes,
-    bool dropNextAck = false
+    bool dropNextAck = false,
+    EventBus* eventBus = nullptr
 );

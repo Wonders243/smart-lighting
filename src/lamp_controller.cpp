@@ -19,18 +19,17 @@ void setLampPower(
 
 void setLampBrightness(
     Lamp& lamp,
-    uint8_t brightness
+    int32_t brightness
 ) {
+    const int32_t clampedBrightness =
+        brightness < 0
+            ? 0
+            : (brightness > 100 ? 100 : brightness);
 
-    if (brightness > 100) {
-
-        brightness = 100;
-    }
-
-    lamp.state.brightness = brightness;
+    lamp.state.brightness = static_cast<uint8_t>(clampedBrightness);
 
     Serial.print("Brightness -> ");
-    Serial.print(brightness);
+    Serial.print(clampedBrightness);
     Serial.println("%");
 }
 

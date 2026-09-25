@@ -1,21 +1,58 @@
 #include <Arduino.h>
 
 #include "device_manager.h"
+#include "event_bus.h"
 
+static uint32_t nextDeviceEventId = 1;
+
+static void publishDeviceStatusEvent(
+    EventBus* eventBus,
+    EventType type,
+    const Device& device,
+    uint32_t timestamp
+) {
+    if (eventBus == nullptr) {
+        return;
+    }
+
+    Event event = {
+        nextDeviceEventId++,
+        type,
+        device.id,
+        device.status == DeviceStatus::ONLINE ? 1 : 0,
+        0,
+        timestamp
+    };
+
+    publishEvent(*eventBus, event);
+}
 
 void updateDeviceSeen(
-    Device& device
+    Device& device,
+    EventBus* eventBus
 ) {
+    const bool wasOffline = device.status == DeviceStatus::OFFLINE;
+    const uint32_t now = millis();
 
-    device.lastSeen = millis();
+    device.lastSeen = now;
 
     device.status =
         DeviceStatus::ONLINE;
+
+    if (wasOffline) {
+        publishDeviceStatusEvent(
+            eventBus,
+            EventType::LAMP_ONLINE,
+            device,
+            now
+        );
+    }
 }
 
 
 void updateDeviceStatus(
-    LampRegistry& registry
+    LampRegistry& registry,
+    EventBus* eventBus
 ) {
 
     uint32_t now = millis();
@@ -43,6 +80,13 @@ void updateDeviceStatus(
 
                 device.status =
                     DeviceStatus::OFFLINE;
+
+                publishDeviceStatusEvent(
+                    eventBus,
+                    EventType::LAMP_OFFLINE,
+                    device,
+                    now
+                );
 
 
                 Serial.print(

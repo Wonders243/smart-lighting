@@ -63,9 +63,22 @@ bool addAutomation(
         return false;
     }
 
+    if (
+        automation.conditionCount > MAX_AUTOMATION_CONDITIONS ||
+        automation.actionCount > MAX_AUTOMATION_ACTIONS
+    ) {
+        Serial.println("Compteurs d'automatisation hors capacité");
+        return false;
+    }
+
+    Automation initializedAutomation = automation;
+    initializedAutomation.conditionState = false;
+    initializedAutomation.conditionSince = 0;
+    initializedAutomation.lastTriggered = 0;
+
     registry.automations[
         registry.count
-    ] = automation;
+    ] = initializedAutomation;
 
     registry.count++;
 

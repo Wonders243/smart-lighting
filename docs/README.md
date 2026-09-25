@@ -4,6 +4,8 @@ Système d'éclairage intelligent modulaire basé sur ESP32, conçu pour évolue
 
 Le projet est développé avec **PlatformIO / VS Code** et utilise actuellement **Wokwi** pour les simulations.
 
+Voir aussi l'[audit complet du projet](AUDIT_PROJET.md).
+
 ## Architecture
 
 ```text
@@ -282,11 +284,20 @@ Fonctionnalités validées :
 - [x] abstraction du transport
 - [x] simulation du transport
 
-Tests validés :
+Scénarios de démonstration Wokwi historiques (distincts de la suite native) :
 
 1. transmission normale avec ACK ;
 2. perte de message et retransmissions ;
 3. perte d'ACK et déduplication.
+
+### V3.9 stabilisée — simulation
+
+- Les six environnements ESP32 (`core`, `main`, `lamp`, `relay`, `lamp_a`, `lamp_b`) compilent.
+- La suite PlatformIO native comprend neuf tests reproductibles ; les neuf passent.
+- `lamp_a` et `lamp_b` restent des rôles `DEVICE_ROLE_LAMP` et utilisent des identifiants locaux distincts (1 et 2).
+- `lamp` conserve les démonstrations Wokwi ; les autres profils démarrent le service applicatif sans injecter d'événements de démonstration.
+- Aucun pilote de capteur ne publie encore les événements de luminosité, présence ou temps ; les automatisations ne sont donc pas validées en service autonome.
+- Le transport actif reste `SimulationTransport`. La compilation ne valide ni le matériel ESP32-C6, ni Zigbee, ni les sorties électriques.
 
 ## Simulation Wokwi
 
@@ -331,6 +342,8 @@ DEVICE_ROLE_MAIN
 DEVICE_ROLE_LAMP
 DEVICE_ROLE_RELAY
 ```
+
+Les identités des deux profils de lampe sont indépendantes du rôle : `DEVICE_LAMP_A` fixe l'identifiant local 1 et `DEVICE_LAMP_B` l'identifiant 2.
 
 ## Matériel cible
 
@@ -531,12 +544,21 @@ pio run -e main
 
 ```text
 Project: Smart Lighting
-Current version: V3.9
-Status: Transport abstraction validated
+Current version: V3.9 stabilisée (simulation)
+Status: Builds ESP32 validés, 9 tests natifs validés
 Current transport: Simulation
 Target transport: Zigbee
 Target hardware: ESP32-C6
 ```
+
+Vérifications locales :
+
+```bash
+pio run -e core -e main -e lamp -e relay -e lamp_a -e lamp_b
+pio test -e native
+```
+
+L'environnement de test `native` nécessite un compilateur C/C++ compatible GCC disponible sur le poste. Le profil Wokwi `lamp` conserve les scénarios de démonstration.
 
 ## Principe général
 

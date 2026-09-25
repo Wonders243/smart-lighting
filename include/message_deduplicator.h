@@ -7,6 +7,7 @@
 constexpr uint8_t MAX_PROCESSED_MESSAGES = 20;
 
 struct ProcessedMessage {
+    uint32_t sourceId;
     uint32_t messageId;
 
     ExecutionStatus executionStatus;
@@ -29,16 +30,19 @@ void initMessageDeduplicator(
 
 ProcessedMessage* findProcessedMessage(
     MessageDeduplicator& deduplicator,
+    uint32_t sourceId,
     uint32_t messageId
 );
 
 bool isMessageProcessed(
     MessageDeduplicator& deduplicator,
+    uint32_t sourceId,
     uint32_t messageId
 );
 
 bool registerProcessedMessage(
     MessageDeduplicator& deduplicator,
+    uint32_t sourceId,
     uint32_t messageId,
     ExecutionStatus executionStatus
 );

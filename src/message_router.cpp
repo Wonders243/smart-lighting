@@ -4,6 +4,8 @@
 #include "message_manager.h"
 #include "action_executor.h"
 #include "message_id_generator.h"
+#include "device_manager.h"
+#include "event_bus.h"
 
 
 static bool isValidCommandType(
@@ -113,7 +115,8 @@ void processMessages(
     LampRegistry& lamps,
     GroupRegistry& groups,
     SceneRegistry& scenes,
-    bool dropNextAck
+    bool dropNextAck,
+    EventBus* eventBus
 ) {
     Message message;
 
@@ -124,6 +127,18 @@ void processMessages(
             message
         )
     ) {
+
+        Lamp* sourceLamp = findLamp(
+            lamps,
+            message.sourceId
+        );
+
+        if (sourceLamp != nullptr) {
+            updateDeviceSeen(
+                sourceLamp->device,
+                eventBus
+            );
+        }
 
         Serial.println();
 
@@ -218,6 +233,7 @@ void processMessages(
         ProcessedMessage* processed =
             findProcessedMessage(
                 deduplicator,
+                message.sourceId,
                 message.id
             );
 
@@ -332,6 +348,7 @@ void processMessages(
 
         registerProcessedMessage(
             deduplicator,
+            message.sourceId,
             message.id,
             result
         );

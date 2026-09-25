@@ -51,6 +51,12 @@ bool trackMessage(
 );
 
 
+bool untrackMessage(
+    MessageTracker& tracker,
+    uint32_t messageId
+);
+
+
 PendingMessage* findPendingMessage(
     MessageTracker& tracker,
     uint32_t messageId

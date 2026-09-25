@@ -11,7 +11,7 @@ void setLampPower(
 
 void setLampBrightness(
     Lamp& lamp,
-    uint8_t brightness
+    int32_t brightness
 );
 
 

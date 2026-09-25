@@ -1,10 +1,13 @@
 #include <Arduino.h>
 
 #include "device_registry.h"
+#include "device_identity.h"
 #include "group_manager.h"
 #include "scene_manager.h"
 #include "automation_manager.h"
 #include "event_bus.h"
+#include "event_processor.h"
+#include "automation_context.h"
 #include "communication.h"
 #include "message_tracker.h"
 #include "message_router.h"
@@ -28,6 +31,8 @@ SceneRegistry sceneRegistry;
 AutomationRegistry automationRegistry;
 
 EventBus eventBus;
+
+AutomationContext automationContext = {};
 
 
 /*
@@ -115,6 +120,11 @@ static uint32_t sendCommand(
         )
     ) {
 
+        untrackMessage(
+            messageTracker,
+            command.id
+        );
+
         Serial.println(
             "Erreur : impossible d'envoyer le message."
         );
@@ -177,7 +187,11 @@ static void processNormalCommunication() {
 
         groupRegistry,
 
-        sceneRegistry
+        sceneRegistry,
+
+        false,
+
+        &eventBus
     );
 }
 
@@ -209,6 +223,9 @@ void setup() {
     Serial.println(
         "       SMART LIGHTING V3.9"
     );
+
+    Serial.print("Instance : ");
+    Serial.println(DEVICE_LOCAL_NAME);
 
     Serial.println(
         "================================"
@@ -256,7 +273,7 @@ void setup() {
     initCommunication(
         communication,
         CommunicationTransportType::SIMULATION,
-        0
+        DEVICE_LOCAL_ID
     );
 
 
@@ -275,6 +292,7 @@ void setup() {
     );
 
 
+#if defined(SMART_LIGHTING_DEMO)
     /*
      * ========================================================
      * LAMPES
@@ -552,6 +570,7 @@ void setup() {
 
 
     simulateLostMessages();
+#endif
 }
 
 
@@ -562,6 +581,7 @@ void setup() {
  */
 
 void loop() {
+#if defined(SMART_LIGHTING_DEMO)
 
     /*
      * ========================================================
@@ -696,7 +716,9 @@ void loop() {
 
             sceneRegistry,
 
-            true
+            true,
+
+            &eventBus
         );
 
 
@@ -783,7 +805,30 @@ void loop() {
     }
 
 
-    delay(
-        100
+#else
+    processNormalCommunication();
+
+    updateMessageTimeouts(
+        messageTracker,
+        communication
     );
+#endif
+
+    automationContext.timestamp = millis();
+
+    updateDeviceStatus(
+        lampRegistry,
+        &eventBus
+    );
+
+    processEvents(
+        eventBus,
+        automationRegistry,
+        sceneRegistry,
+        groupRegistry,
+        lampRegistry,
+        automationContext
+    );
+
+    delay(100);
 }

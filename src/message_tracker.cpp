@@ -69,23 +69,26 @@ bool trackMessage(
     }
 
 
-    if (
-        tracker.count >=
-        MAX_PENDING_MESSAGES
-    ) {
+    uint8_t slot = tracker.count;
 
-        Serial.println(
-            "Tracker plein"
-        );
+    if (tracker.count >= MAX_PENDING_MESSAGES) {
+        slot = MAX_PENDING_MESSAGES;
 
-        return false;
+        for (uint8_t i = 0; i < tracker.count; i++) {
+            if (!tracker.messages[i].waitingForAck) {
+                slot = i;
+                break;
+            }
+        }
+
+        if (slot >= MAX_PENDING_MESSAGES) {
+            Serial.println("Tracker plein : tous les messages attendent un ACK");
+            return false;
+        }
     }
 
 
-    PendingMessage& pending =
-        tracker.messages[
-            tracker.count
-        ];
+    PendingMessage& pending = tracker.messages[slot];
 
 
     pending.message =
@@ -110,7 +113,9 @@ bool trackMessage(
         0;
 
 
-    tracker.count++;
+    if (tracker.count < MAX_PENDING_MESSAGES) {
+        tracker.count++;
+    }
 
 
     Serial.print(
@@ -123,6 +128,28 @@ bool trackMessage(
 
 
     return true;
+}
+
+
+bool untrackMessage(
+    MessageTracker& tracker,
+    uint32_t messageId
+) {
+    for (uint8_t i = 0; i < tracker.count; i++) {
+        if (tracker.messages[i].message.id != messageId) {
+            continue;
+        }
+
+        for (uint8_t j = i; j + 1 < tracker.count; j++) {
+            tracker.messages[j] = tracker.messages[j + 1];
+        }
+
+        tracker.count--;
+        tracker.messages[tracker.count] = {};
+        return true;
+    }
+
+    return false;
 }
 
 
